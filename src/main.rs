@@ -5,7 +5,7 @@ use Suit::*;
 use Rank::*;
 use std::fmt;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Suit {
     Clubs,
     Diamonds,
@@ -34,7 +34,7 @@ static SUITS: [Suit; 4] = [
     Spades
 ];
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Rank {
     Two,
     Three,
@@ -172,10 +172,19 @@ struct BurracoGame {
     pot1: Cards,
     pot2: Cards,
     teams: Vec<Team>,
-    player_turn: (usize, usize) // team, teamplayer idx
+    player_turn: (usize, usize), // team idx, teamplayer idx
+    phase: GamePhase
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum GamePhase {
+    Draw, 
+    Play, 
+    Discard,
+    Finished
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum DrawAction {
     DrawOpen,
     DrawPile
@@ -194,10 +203,11 @@ enum PlayAction {
     AppendBottom(usize, Cards), // run_idx
     ReplaceWildcard(usize, usize), // run_idx
     MoveWildcard(usize, usize, usize), // run_idx, from, to
+    Noop
 }
 
-#[derive(Debug, Clone)]
-struct DiscardAction(Cards);
+#[derive(Debug, Clone, Copy)]
+struct DiscardAction(Card);
 
 impl fmt::Display for BurracoGame {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -217,6 +227,9 @@ impl fmt::Display for BurracoGame {
         write!(f, "\n")?;
         write!(f, "  Pot 1: {} cards \n", self.pot1.len() )?;
         write!(f, "  Pot 2: {} cards \n", self.pot2.len() )?;
+        let (team, player) = self.player_turn;
+        write!(f, "Current turn: team {} player {} \n", team, player)?;
+        write!(f, "Current phase: {:?} \n", &self.phase )?;
         write!(f, "---")
     }
 }
@@ -259,15 +272,26 @@ impl BurracoGame {
             pot1,
             pot2,
             teams,
-            player_turn: (0,0) // TODO: randomize
+            player_turn: (0,0), // TODO: randomize,
+            phase: GamePhase::Draw
         }
     }
 
-    fn draw(&mut self, team: usize, player: usize, action: DrawAction) {
+    fn draw(&mut self, action: DrawAction) -> Result<(),String> {
+        dbg!(&action);
+
+        let (team, player) = self.player_turn;
+        
+
+        if self.phase != GamePhase::Draw {
+            return Err(format!("Draw action invalid when phase is: {:?}", self.phase));
+        }
+
         match action {
             DrawAction::DrawOpen => {
                 let open_pile = &mut self.open_pile;
                 self.teams[team].players[player].hand.append(open_pile);
+
             },
             DrawAction::DrawPile => {
                 let draw_pile_len = self.draw_pile.len();
@@ -275,25 +299,61 @@ impl BurracoGame {
                 self.teams[team].players[player].hand.append(&mut draw_pile.split_off(draw_pile_len - 1));
             }
         }
-    }
-    
-    fn play(&mut self, _team: usize, _player: usize, _action: PlayAction) {
-    
-    }
-    
-    fn discard(&mut self, _team: usize, _player: usize, _action: DiscardAction)  {
 
+        self.phase = GamePhase::Play;
+        Ok( () )
+    }
+    
+    fn play(&mut self, action: PlayAction) -> Result<(),String> {
+        dbg!(&action);
+        if self.phase != GamePhase::Play {
+            return Err(format!("Play action invalid when phase is: {:?}", self.phase));
+        }
+
+        match action {
+            PlayAction::Noop => {}
+            _ => return Err(format!("Not implemented for {:?}", &action))
+        }
+
+        self.phase = GamePhase::Discard;
+        Ok( () )
+    }
+    
+    fn discard(&mut self, action: DiscardAction) -> Result<(),String>  {
+        dbg!(&action);
+        if self.phase != GamePhase::Discard {
+            return Err(format!("Discard action invalid when phase is: {:?}", self.phase));
+        }
+        
+        self.phase = GamePhase::Draw;
+        let (mut team, mut player) = self.player_turn;
+        let next_team = (team + 1) %  self.num_teams;
+        if next_team == 0 && (team + 1) * (player + 1) == self.num_teams * self.num_team_players {
+            player = player + 1;
+        }
+        team = next_team;
+        self.player_turn = (team, player);
+        Ok( () )
+    }
+
+    fn current_player(&self) -> &Player {
+        let (team, player) = self.player_turn;
+        &self.teams[team].players[player]
     }
 }
 
 
-fn main() {
+fn main() -> Result<(), String> {
 
     let mut game = BurracoGame::init_with(2, 2);
 
     println!("{}", game);
-    game.draw(0, 0, DrawAction::DrawPile);
+    game.draw( DrawAction::DrawPile)?;
     println!("{}", game);
-    game.draw(0, 0, DrawAction::DrawOpen);
+    game.play( PlayAction::Noop)?;
     println!("{}", game);
+    game.discard(DiscardAction(game.current_player().hand[0]))?;
+    println!("{}", game);
+
+    Ok( () )
 }
