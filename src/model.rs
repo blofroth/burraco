@@ -100,16 +100,15 @@ impl Card {
         if string.len() < 3 {
             return Err("Invalid suit".into());
         }
-        dbg!(string);
         // unicode for these are 3 bytes
-        let suit = match dbg!(&string[0..3]) {
+        let suit = match &string[0..3] {
             "♣" => Clubs,
             "♦" => Diamonds, 
             "♥" => Hearts,
             "♠" => Spades,
             _ => return Err("Unknown suit character".into())
         };
-        let rank = match dbg!(&string[3..]) {
+        let rank = match &string[3..] {
             "2" => Two,
             num @ ("3" | "4" | "5" | "6" | "7" | "8" | "9" | "10") 
                 => Numerical(num.parse::<i16>().map_err(|e| e.to_string())?), 
@@ -244,7 +243,7 @@ impl Run {
 
         for i in 0..cards.len() {
             let prev_card = if i > 0 { Some(cards[i-1]) } else { None }; 
-            let card = dbg!(cards[i]);
+            let card = cards[i];
             let next_card = if i < cards.len() - 1 { Some(cards[i+1]) } else { None };
             
             let curr_wildcard_replacement = match (prev_card, card, next_card) {
@@ -281,7 +280,7 @@ impl Run {
                 
 
                 if let Some(prev) = prev_card {
-                    let prev_rank = match dbg!(wildcard_replaces) {
+                    let prev_rank = match wildcard_replaces {
                         Some( (prev_i, rank)) if prev_i == i - 1 => rank,
                         _ => prev.1
                     };
@@ -318,6 +317,44 @@ impl Run {
             RunType::Group => todo!(),
         }
         
+    }
+
+    pub fn replace_wildcard(&self, at: usize, card: &Card) -> Result<Run,String> {
+        use std::mem;
+
+
+        let mut new_cards = self.cards().clone();
+        if at >= new_cards.len() {
+            return Err("Cannot replace at invalid position".into());
+        }
+
+        let old_card = mem::replace(&mut new_cards[at], card.clone());
+        new_cards.insert(0, old_card);
+        let new_run = match self.run_type() {
+            RunType::Sequence => Run::build_sequence_run(new_cards)?,
+            _ => todo!()
+        };
+        Ok(new_run)
+    }
+
+    pub fn move_card(&self, from: usize, to: usize) -> Result<Run,String> {
+        let mut new_cards = self.cards().clone();
+        if from >= new_cards.len() || to >= new_cards.len() {
+            return Err("Cannot move from/to invalid position".into());
+        }
+
+        let wildcard = new_cards[from].clone();
+        // assume we don't need to verify card types here
+        // should only be wildcards and ace that are allowed to move
+
+        new_cards.insert(to, wildcard);
+        new_cards.remove(from);
+
+        let new_run = match self.run_type() {
+            RunType::Sequence => Run::build_sequence_run(new_cards)?,
+            _ => todo!()
+        };
+        Ok(new_run)
     }
 }
 

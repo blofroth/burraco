@@ -116,8 +116,8 @@ impl fmt::Display for PlayAction {
             StartRun(run) => write!(f, "Start run - {}", run.cards()),
             AppendTop(run_idx, cards) => write!(f, "Append top, to {} - {}", run_idx, cards),
             AppendBottom(run_idx, cards) => write!(f, "Append bottom, to {} - {}", run_idx, cards),
-            ReplaceWildcard(run_idx, wilcard_idx) => write!(f, "Replace wildcard, with {} - position {}", run_idx, wilcard_idx),
-            MoveWildcard(run_idx, from, to) => write!(f, "Move wildcard, with {} - from {} to {}", run_idx, from, to),
+            ReplaceWildcard(run_idx, wilcard_idx, card) => write!(f, "Replace wildcard, for {}: with {} - position {}", run_idx, card, wilcard_idx),
+            MoveCard(run_idx, from, to) => write!(f, "Move wildcard, with {} - from {} to {}", run_idx, from, to),
             Noop => write!(f, "Play nothing"),
         }
     }

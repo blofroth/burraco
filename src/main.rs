@@ -41,15 +41,22 @@ fn main() -> Result<(), String> {
         }
         println!("---");
         println!("{}", game);
+        
+        // probably enough even if new runs are created?
+        let mut moves_allowed = game.current_team().played_runs.len();
+
         // play until noop
         'player_plays: loop {
             if game.state().cards_total() > orig_cards {
                 panic!("Cards are procreating! {} vs orig {}", game.state().cards_total(), orig_cards);
             }
-            
-            let available_actions = PlayAction::enumerate(&game.current_team().played_runs, &game.current_player().hand);
+
+            let available_actions = PlayAction::enumerate(&game.current_team().played_runs, &game.current_player().hand, moves_allowed);
             print_play_actions(&available_actions);
             let selected_action = available_actions.into_iter().last().unwrap();
+            if let PlayAction::MoveCard(_,_,_) = selected_action {
+                moves_allowed -= 1;
+            }
 
             println!("---");
             println!("Playing action: {}", selected_action);
