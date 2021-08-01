@@ -1,11 +1,12 @@
 use std::ops::Deref;
 use std::ops::DerefMut;
+use std::str;
 
 
 use Suit::*;
 use Rank::*;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Suit {
     Clubs,
     Diamonds,
@@ -21,7 +22,7 @@ pub static SUITS: [Suit; 4] = [
     Spades
 ];
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Rank {
     Two, // Pinella
     Numerical(i16),
@@ -48,8 +49,79 @@ pub static SUIT_RANK: [Rank; 13] = [
     Ace,
 ];
 
-#[derive(Debug, Clone, Copy)]
+impl Rank {
+    pub fn index(&self) -> i16 {
+        match self {
+            Two => 2,
+            Numerical(num) => *num,
+            Jack => 11,
+            Queen => 12,
+            King => 13,
+            Ace => 14,
+            Joker => -2 // not in any sequence
+        }
+    }
+    pub fn from_index(index: i16) -> Rank {
+        match index {
+            2 => Two,
+            num @ 3..=10 => Numerical(num),
+            11 => Jack,
+            12 => Queen,
+            13 => King,
+            14 => Ace, // assume 1 is handled outside
+            _ => panic!("unsupported index mapping") // assume we don't need to handle joker here
+        }
+    }
+    pub fn next(&self) -> Rank {
+        match self {
+            Ace => Two,
+            Joker => panic!("no defined next rank for Joker"),
+            any => Rank::from_index(any.index() + 1)
+        }
+    }
+
+    pub fn prev(&self) -> Option<Rank> {
+        match self {
+            Ace => None,
+            Joker => None,
+            any => Some(Rank::from_index(any.index() - 1))
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Card(pub Suit, pub Rank);
+
+impl Card {
+    fn parse(string: &str) -> Result<Card, String> {
+        if string == "JK" {
+            return Ok(Card(Jokers, Joker));
+        }
+        if string.len() < 3 {
+            return Err("Invalid suit".into());
+        }
+        dbg!(string);
+        // unicode for these are 3 bytes
+        let suit = match dbg!(&string[0..3]) {
+            "♣" => Clubs,
+            "♦" => Diamonds, 
+            "♥" => Hearts,
+            "♠" => Spades,
+            _ => return Err("Unknown suit character".into())
+        };
+        let rank = match dbg!(&string[3..]) {
+            "2" => Two,
+            num @ ("3" | "4" | "5" | "6" | "7" | "8" | "9" | "10") 
+                => Numerical(num.parse::<i16>().map_err(|e| e.to_string())?), 
+            "J" => Jack,
+            "Q" => Queen,
+            "K" => King,
+            "A" => Ace,
+            _ => return Err("Unknown rank".into())
+        };
+        Ok(Card(suit, rank))
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct Cards(pub Vec<Card>);
@@ -71,6 +143,14 @@ impl Cards {
         Cards(deck)
     }
 
+    fn of(expr: &str) -> Result<Cards, String> {
+        if expr.trim().is_empty() {
+            return Ok(Cards(vec![]));
+        }
+        let cards: Result<Vec<_>, _> =  expr.split(",").map(|part| Card::parse(part.trim())).collect();
+        Ok(Cards(cards?))
+    }
+
     pub fn drain_back(&mut self, num_cards: usize) -> Cards {
         let index = self.len() - num_cards;
         Cards(self.split_off(index))
@@ -86,15 +166,7 @@ impl Cards {
                 Jokers => 0
             };
 
-            let rank_val = match card.1 {
-                Two => 2,
-                Numerical(num) => num,
-                Jack => 11,
-                Queen => 12,
-                King => 13,
-                Ace => 14,
-                Joker => 0,
-            };
+            let rank_val = card.1.index();
 
             (suit_val, rank_val)
         }
@@ -130,11 +202,104 @@ pub struct Team {
     pub has_reached_pot: bool,
     pub has_used_pot: bool,
 }
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RunType {
+    Sequence,
+    Group
+}
 
 #[derive(Debug, Clone)]
-pub enum Run {
-    SequenceRun(Cards),
-    GroupRun(Cards)
+pub struct Run {
+    cards: Cards,
+    run_type: RunType
+}
+
+// ensure append only?
+impl Run {
+    pub fn cards(&self) -> &Cards {
+        &self.cards
+    }
+
+    pub fn run_type(&self) -> RunType {
+        self.run_type
+    }
+
+    pub fn build_sequence_run(cards: Cards) -> Result<Run, String> {
+        if cards.len() < 3 {
+            return Err("Need at least 3 cards to create a sequence run".into());
+        }
+        let first_known_suit = cards.iter().filter(|c| c.1 != Joker && c.1 != Two).next()
+            .ok_or("Need at least some non wild cards for sequence run".to_string())?.0;
+        let num_same_two = cards.iter().filter(|c| c.0 == first_known_suit && c.1 == Rank::Two).count();
+        let num_other_two = cards.iter().filter(|c| c.0 != first_known_suit && c.1 == Rank::Two).count();
+        let num_joker = cards.iter().filter(|c| c.1 == Rank::Joker).count();
+
+        // two Two:s of main suit could be allowed, cap to 1 in this count
+        // NOTE: we assume two decks
+        if num_same_two.min(1) + num_other_two + num_joker > 1 {
+            return Err("Too many wildcards in sequence run".into())
+        }
+
+        let mut wildcard_replaces = None;
+
+        for i in 0..cards.len() {
+            let prev_card = if i > 0 { Some(cards[i-1]) } else { None }; 
+            let card = dbg!(cards[i]);
+            let next_card = if i < cards.len() - 1 { Some(cards[i+1]) } else { None };
+            
+            let curr_wildcard_replacement = match (prev_card, card, next_card) {
+                // Two used as two, in same suit (REF1)
+                (_, Card(suit1, Two), Some(Card(suit2, Numerical(3)))) if suit1 == first_known_suit && suit2 == first_known_suit => None,
+                // Special case for same suit Two as Ace
+                (None, Card(suit1, Two), Some(Card(suit2, Two))) if suit1 == first_known_suit && suit2 == first_known_suit => Some( (i, Ace) ),
+                // Two used as two with wildcard as three
+                (_, Card(suit, Two), Some(Card(_, Two | Joker))) if suit == first_known_suit => None,
+                // Two used as wildcard, in any other suit
+                (Some(Card(_, prev_rank)), Card(_, Joker | Two), _) => Some( (i, prev_rank.next()) ),
+                (None, Card(_, Joker | Two ), Some(Card(_, next_rank))) if next_rank.prev().is_some() => Some( (i, next_rank.prev().unwrap()) ),
+                _ => None
+            };
+
+            if let Some(_) = curr_wildcard_replacement {
+                if let Some(_) = wildcard_replaces {
+                    return Err("You have already used a wildcard in this run".into());
+                } else {
+                    wildcard_replaces = curr_wildcard_replacement;
+                }
+                let valid_wildcard_sequence = match (prev_card, card.1, next_card) {
+                    // cannot extend ace sequence
+                    (Some(Card(_,Ace)), _, None) => false,
+                    _ => true
+                };
+                if !valid_wildcard_sequence {
+                    return Err("Cannot extend from Ace with wildcard".into())
+                }
+            } else {
+                if card.0 != first_known_suit {
+                    return Err("Mismatched suit in sequence run".into())
+                }
+                
+
+                if let Some(prev) = prev_card {
+                    let prev_rank = match dbg!(wildcard_replaces) {
+                        Some( (prev_i, rank)) if prev_i == i - 1 => rank,
+                        _ => prev.1
+                    };
+
+                    let valid_rank_sequence = match (prev_rank, card.1, next_card) {
+                        (Ace, curr, _) => curr == Two,
+                        _ => prev_rank.index() + 1 == card.1.index()
+                    };
+
+                    if !valid_rank_sequence {
+                        return Err(format!("Invalid sequence: {} to {}", prev, &card));
+                    }
+                }
+            }
+        }
+
+        Ok( Run { cards, run_type: RunType::Sequence} )
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -147,6 +312,7 @@ pub struct BurracoState {
     pub pot2: Cards,
     pub teams: Vec<Team>,
     pub player_turn: (usize, usize), // team idx, teamplayer idx
+    pub round: u32
 }
 
 impl BurracoState {
@@ -189,11 +355,81 @@ impl BurracoState {
             pot2,
             teams,
             player_turn: (0,0), // TODO: randomize,
+            round: 0
         }
     }
+}
 
-    pub fn current_player(&self) -> &Player {
-        let (team, player) = self.player_turn;
-        &self.teams[team].players[player]
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ♣ ♦ ♥ ♠
+
+    #[test]
+    fn test_build_empty() -> Result<(),String> {
+        assert!(dbg!(Run::build_sequence_run(Cards::of("")?)).is_err());
+        Ok( () ) 
     }
+
+    #[test]
+    fn test_build_simple() -> Result<(),String> {
+        assert!(dbg!(Run::build_sequence_run(Cards::of("♣3,♣4,♣5")?)).is_ok());
+        Ok( () ) 
+    }
+
+    #[test]
+    fn test_too_many_twos() -> Result<(),String> {
+        assert!(dbg!(Run::build_sequence_run(Cards::of("♣A,♣2,♣2,♣3")?)).is_err());
+        Ok( () ) 
+    }
+
+    #[test]
+    fn test_wildcard_one_ok() -> Result<(),String> {
+        assert!(dbg!(Run::build_sequence_run(Cards::of("♣2,♣2,♣3")?)).is_ok());
+        Ok( () ) 
+    }
+
+    #[test]
+    fn test_normal_two_ok() -> Result<(),String> {
+        assert!(dbg!(Run::build_sequence_run(Cards::of("♣A,♣2,♣3")?)).is_ok());
+        Ok( () ) 
+    }
+
+    #[test]
+    fn test_wildcard_three_ok() -> Result<(),String> {
+        assert!(dbg!(Run::build_sequence_run(Cards::of("♣A,♣2,♣2")?)).is_ok());
+        Ok( () ) 
+    }
+
+    #[test]
+    fn test_bad_suit() -> Result<(),String> {
+        assert!(dbg!(Run::build_sequence_run(Cards::of("♣3,♦4,♣5")?)).is_err());
+        Ok( () ) 
+    }
+
+    #[test]
+    fn test_ok_joker() -> Result<(),String> {
+        assert!(dbg!(Run::build_sequence_run(Cards::of("♣3,JK,♣5")?)).is_ok());
+        Ok( () ) 
+    }
+
+    #[test]
+    fn test_too_many_wildcards() -> Result<(),String> {
+        assert!(dbg!(Run::build_sequence_run(Cards::of("♣3,JK,JK,♣6")?)).is_err());
+        Ok( () ) 
+    }
+
+    #[test]
+    fn test_bad_non_wildcard_two() -> Result<(),String> {
+        assert!(dbg!(Run::build_sequence_run(Cards::of("♣2,♣4,♣2,♣6")?)).is_err());
+        Ok( () ) 
+    }
+
+    #[test]
+    fn test_bad_final_wildcard() -> Result<(),String> {
+        assert!(dbg!(Run::build_sequence_run(Cards::of("♥K,♥A,JK")?)).is_err());
+        Ok( () ) 
+    }
+
 }
