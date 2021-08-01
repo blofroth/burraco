@@ -3,10 +3,13 @@ use model::BurracoState;
 
 use actions::BurracoGame;
 use cli_display::print_play_actions;
+use agent::BurracoAgent;
+use rand::thread_rng;
 
 mod model;
 mod actions;
 mod cli_display;
+mod agent;
 
 fn main() -> Result<(), String> {
     use actions::DrawAction;
@@ -22,17 +25,19 @@ fn main() -> Result<(), String> {
     println!("---");
 
     let orig_cards = game.state().cards_total();
+
+    // use agent::DumbAgent;
+    // let mut agent = DumbAgent{};
+    use agent::RandomAgent;
+    let mut agent = RandomAgent{ rng: thread_rng() };
     
     'round: loop {
         if game.state().cards_total() > orig_cards {
             panic!("Cards are procreating! {} vs orig {}", game.state().cards_total(), orig_cards);
         }
         // poor mans randomization :)
-        let draw_action = if game.state().round % 2 == 0 {
-            DrawAction::DrawPile
-        } else {
-            DrawAction::DrawOpen
-        };
+        let draw_action = agent.select_draw_action(game.state());
+
         println!("Draw action: {}", &draw_action);
         game.draw(draw_action)?;
         if let Finished(_) = game.phase() {
@@ -53,7 +58,7 @@ fn main() -> Result<(), String> {
 
             let available_actions = PlayAction::enumerate(&game.current_team().played_runs, &game.current_player().hand, moves_allowed);
             print_play_actions(&available_actions);
-            let selected_action = available_actions.into_iter().last().unwrap();
+            let selected_action = agent.select_play_action(available_actions, game.state());
             if let PlayAction::MoveCard(_,_,_) = selected_action {
                 moves_allowed -= 1;
             }
@@ -74,7 +79,7 @@ fn main() -> Result<(), String> {
             }
         }
 
-        let discard_action = DiscardAction(game.current_player().hand[0]);
+        let discard_action = agent.select_discard_action(&game.current_player().hand, game.state());
         println!("Discard action: {}", discard_action);
         game.discard(discard_action)?;
         if let Finished(_) = game.phase() {

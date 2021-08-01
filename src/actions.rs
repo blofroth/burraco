@@ -168,9 +168,28 @@ impl BurracoGame {
             _ => todo!()
         }
         if self.current_player().hand.is_empty() {
-            self.phase = GamePhase::Finished(999); // TODO: calculate winner 
+            // TODO prevent action where game ends without team burraco
+            if !self.current_team().has_reached_pot {
+                if !self.state.pot1.is_empty() {
+                    // "discard and get pot", can only play next turn
+                    self.state.teams[team].players[player].hand.append(&mut self.state.pot1.drain_back(11));
+                    self.state.teams[team].has_reached_pot = true;
+                } else if !self.state.pot2.is_empty() {
+                    // "discard and get pot", can only play next turn
+                    self.state.teams[team].players[player].hand.append(&mut self.state.pot1.drain_back(11));
+                    self.state.teams[team].has_reached_pot = true;
+                } else {
+                    // both pots taken, game ends (should really happen in other top else clause?)
+                    self.phase = GamePhase::Finished(999); // TODO: calculate winner 
+                }
+            } else {
+                // team has already reached one pot
+                // TODO: game should end, I think
+                self.phase = GamePhase::Finished(999); // TODO: calculate winner 
+            }
         } 
-        // else continue in draw, if not set to Discard by noop action
+
+        // else continue in draw for next player, if not set to Discard by noop action
         
         // TODO update score?
         Ok( () )
@@ -189,10 +208,35 @@ impl BurracoGame {
         }
 
         if self.current_player().hand.is_empty() {
-            self.phase = GamePhase::Finished(999); // TODO: calculate winner 
+            // TODO code duplication with play check?
+            // TODO more sophisticated "reached/used" pot check?
+            // TODO prevent action where game ends without team burraco
+            if !self.current_team().has_reached_pot {
+                if !self.state.pot1.is_empty() {
+                    // "flying pot", can continue playing
+                    self.state.teams[team].players[player].hand.append(&mut self.state.pot1.drain_back(11));
+                    self.state.teams[team].has_reached_pot = true;
+                    self.phase = GamePhase::Draw;
+                } else if !self.state.pot2.is_empty() {
+                    // "flying pot", can continue playing
+                    self.state.teams[team].players[player].hand.append(&mut self.state.pot1.drain_back(11));
+                    self.state.teams[team].has_reached_pot = true;
+                    self.phase = GamePhase::Draw;
+                } else {
+                    // both pots taken
+                    // TODO: should game really end? can other team player have valid moves if not used pot?
+                    self.phase = GamePhase::Finished(999); // TODO: calculate winner 
+                }
+            } else {
+                // team has already reached one pot, game ends
+                self.phase = GamePhase::Finished(999); // TODO: calculate winner 
+            }
         } else {
             self.phase = GamePhase::Draw;
+        }
 
+        if self.phase == GamePhase::Draw {
+            // advance turn
             let (mut team, mut player) = self.state.player_turn;
             let next_team = (team + 1) %  self.state.num_teams;
             if next_team == 0 {
@@ -204,6 +248,7 @@ impl BurracoGame {
             team = next_team;
             self.state.player_turn = (team, player);
         }
+
 
         Ok( () )
     }
