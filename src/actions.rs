@@ -3,10 +3,11 @@ use crate::model::BurracoState;
 use crate::model::Card;
 use crate::model::Cards;
 use crate::model::Team;
-use crate::model::Suit::*;
 use crate::model::Rank::*;
 use crate::model::Player;
 use crate::model::Run;
+use crate::model::RunType;
+use crate::model::Append;
 use PlayAction::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -81,9 +82,28 @@ impl BurracoGame {
         }
     }
     
-    pub fn play(&mut self, action: PlayAction) -> Result<(),String> {
+    fn cards_in_hand(cards: &Cards, player: &Player) -> bool {
         use std::collections::HashSet;
         use std::iter::FromIterator;
+        let uniq: HashSet<Card> = HashSet::from_iter(cards.iter().cloned());
+
+        uniq.iter().all(|c1| {
+            let run_count = cards.iter().filter(|c2| c1 == *c2).count();
+            let hand_count = player.hand.iter().filter(|c2| c1 == *c2).count();
+            hand_count >= run_count
+        })
+    }
+
+    fn remove_from_hand(player: &mut Player, cards: &Cards) -> Result<(), String> {
+        let hand = &mut player.hand;
+        for card in cards.iter() {
+            let index = hand.iter().position(|c| c == card).ok_or("Cannot remove card that does not exist".to_string())?;
+            hand.remove(index);
+        }
+        Ok( () )
+    }
+
+    pub fn play(&mut self, action: PlayAction) -> Result<(),String> {
 
         dbg!(&action);
         if self.phase != GamePhase::Play {
@@ -93,34 +113,54 @@ impl BurracoGame {
         let (team, player) = self.state.player_turn;
 
         match action {
-            PlayAction::Noop => {},
-            PlayAction::StartRun(run) => {
-                let uniq: HashSet<Card> = HashSet::from_iter(run.cards().iter().cloned());
-                let all_contained_in_hand = uniq.iter().all(|c1| {
-                    let run_count = run.cards().iter().filter(|c2| c1 == *c2).count();
-                    let hand_count = self.current_player().hand.iter().filter(|c2| c1 == *c2).count();
-                    hand_count >= run_count
-                });
+            Noop => { self.phase = GamePhase::Discard },
+            StartRun(run) => {
+                let all_contained_in_hand = BurracoGame::cards_in_hand(run.cards(), self.current_player());
+
                 if !all_contained_in_hand {
                     return Err("Cannot place cards not in hand!".into());
                 }
                 
-                
-                let hand = &mut self.state.teams[team].players[player].hand;
-                for card in run.cards().iter() {
-                    let index = hand.iter().position(|c| c == card).expect("We have checked that run counts exceed hand counts");
-                    hand.remove(index);
-                }
+                BurracoGame::remove_from_hand(&mut self.state.teams[team].players[player], run.cards())?;
                 self.state.teams[team].played_runs.push(run);
             }
-            _ => return Err(format!("Not implemented for {:?}", &action))
+            AppendTop(run_idx, cards) => {
+                let all_contained_in_hand = BurracoGame::cards_in_hand(&cards, self.current_player());
+
+                if !all_contained_in_hand {
+                    return Err("Cannot place cards not in hand!".into());
+                }
+
+                let run = &self.state.teams[team].played_runs.get(run_idx).ok_or("Non-existing run index".to_string())?;
+                let new_run= run.append(&cards, Append::Top)?;
+                BurracoGame::remove_from_hand(&mut self.state.teams[team].players[player], &cards)?;
+                self.state.teams[team].played_runs[run_idx] = new_run;
+
+            },
+            AppendBottom(run_idx, cards) => {
+                let all_contained_in_hand = BurracoGame::cards_in_hand(&cards, self.current_player());
+
+                if !all_contained_in_hand {
+                    return Err("Cannot place cards not in hand!".into());
+                }
+
+                let run = &self.state.teams[team].played_runs.get(run_idx).ok_or("Non-existing run index".to_string())?;
+                let new_run= run.append(&cards, Append::Bottom)?;
+                BurracoGame::remove_from_hand(&mut self.state.teams[team].players[player], &cards)?;
+                self.state.teams[team].played_runs[run_idx] = new_run;
+
+            },
+            //AppendBottom(_, _) => todo!(),
+            //ReplaceWildcard(_, _) => todo!(),
+            //MoveWildcard(_, _, _) => todo!(),
+            _ => todo!()
         }
         if self.current_player().hand.is_empty() {
             self.phase = GamePhase::Finished(999); // TODO: calculate winner 
-        } else {
-            self.phase = GamePhase::Discard;
-        }
+        } 
+        // else continue in draw, if not set to Discard by noop action
         
+        // TODO update score?
         Ok( () )
     }
     
@@ -202,6 +242,19 @@ impl PlayAction {
                     if let Ok(run) = maybe_run {
                         actions.push(PlayAction::StartRun(run));
                     }
+                }
+            }
+        }
+
+        // append actions 
+        for i in 0..player_hand.len() {
+            let card = Cards(vec![player_hand[i]]);
+            for (j, run) in team_runs.iter().enumerate() {
+                if let Ok(_) = run.append(&card, Append::Top) {
+                    actions.push(PlayAction::AppendTop(j, card.clone()));
+                }
+                if let Ok(_) = run.append(&card, Append::Bottom) {
+                    actions.push(PlayAction::AppendBottom(j, card.clone()));
                 }
             }
         }

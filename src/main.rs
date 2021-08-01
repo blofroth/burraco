@@ -20,8 +20,13 @@ fn main() -> Result<(), String> {
     println!("GAME START");
     println!("{}", game);
     println!("---");
+
+    let orig_cards = game.state().cards_total();
     
-    loop {
+    'round: loop {
+        if game.state().cards_total() > orig_cards {
+            panic!("Cards are procreating! {} vs orig {}", game.state().cards_total(), orig_cards);
+        }
         // poor mans randomization :)
         let draw_action = if game.state().round % 2 == 0 {
             DrawAction::DrawPile
@@ -32,29 +37,43 @@ fn main() -> Result<(), String> {
         game.draw(draw_action)?;
         if let Finished(_) = game.phase() {
             println!("OUT OF PILE CARDS!");
-            break;
+            break 'round;
         }
         println!("---");
         println!("{}", game);
-        let available_actions = PlayAction::enumerate(&game.current_team().played_runs, &game.current_player().hand);
-        print_play_actions(&available_actions);
-        let selected_action = available_actions.into_iter().last().unwrap();
-        println!("Playing action: {}", selected_action);
-        game.play( selected_action)?;
-        if let Finished(_) = game.phase() {
-            let (team, player) = game.state().player_turn;
-            println!("PLAYER WITH EMPTY HAND: team {}, player {}",  team, player);
-            break;
+        // play until noop
+        'player_plays: loop {
+            if game.state().cards_total() > orig_cards {
+                panic!("Cards are procreating! {} vs orig {}", game.state().cards_total(), orig_cards);
+            }
+            
+            let available_actions = PlayAction::enumerate(&game.current_team().played_runs, &game.current_player().hand);
+            print_play_actions(&available_actions);
+            let selected_action = available_actions.into_iter().last().unwrap();
+
+            println!("---");
+            println!("Playing action: {}", selected_action);
+            game.play(selected_action)?;
+            if let Finished(_) = game.phase() {
+                let (team, player) = game.state().player_turn;
+                // TODO: potsetto
+                println!("PLAYER WITH EMPTY HAND: team {}, player {}",  team, player);
+                break 'round;
+            }
+            println!("---");
+            println!("{}", game);
+            if game.phase() != Play {
+                break 'player_plays;
+            }
         }
-        println!("---");
-        println!("{}", game);
+
         let discard_action = DiscardAction(game.current_player().hand[0]);
         println!("Discard action: {}", discard_action);
         game.discard(discard_action)?;
         if let Finished(_) = game.phase() {
             let (team, player) = game.state().player_turn;
             println!("PLAYER WITH EMPTY HAND: team {}, player {}",  team, player);
-            break;
+            break 'round;
         }
         println!("---");
         println!("{}", game);

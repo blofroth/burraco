@@ -300,6 +300,30 @@ impl Run {
 
         Ok( Run { cards, run_type: RunType::Sequence} )
     }
+
+    pub fn append(&self, cards: &Cards, append_to: Append) -> Result<Run,String> {
+        let mut new_cards = self.cards.clone();
+        match append_to {
+            Append::Top => {
+                let end = new_cards.len();
+                new_cards.splice(end..end, cards.iter().cloned());
+            }
+            Append::Bottom => {
+                new_cards.splice(0..0, cards.iter().cloned());
+            }
+        };
+        
+        match self.run_type {
+            RunType::Sequence => Run::build_sequence_run(new_cards),
+            RunType::Group => todo!(),
+        }
+        
+    }
+}
+
+pub enum Append {
+    Top,
+    Bottom
 }
 
 #[derive(Debug, Clone)]
@@ -357,6 +381,19 @@ impl BurracoState {
             player_turn: (0,0), // TODO: randomize,
             round: 0
         }
+    }
+
+    // for sanity checking
+    pub fn cards_total(&self) -> usize {
+        let team_cards: usize = self.teams.iter().map(|t| {
+            let run_sum: usize = t.played_runs.iter().map(|r| r.cards.len()).sum();
+            let hand_sum: usize = t.players.iter().map(|p| p.hand.len()).sum();
+            run_sum + hand_sum
+        }).sum();
+
+
+        let pile_cards = self.draw_pile.len() + self.open_pile.len() + self.pot1.len() + self.pot2.len();
+        team_cards + pile_cards
     }
 }
 
