@@ -6,7 +6,6 @@ use crate::model::Team;
 use crate::model::Rank::*;
 use crate::model::Player;
 use crate::model::Run;
-use crate::model::RunType;
 use crate::model::Append;
 use PlayAction::*;
 
@@ -165,7 +164,6 @@ impl BurracoGame {
                 let new_run = run.move_card(from, to)?;
                 self.state.teams[team].played_runs[run_idx] = new_run;
             },
-            _ => todo!()
         }
         if self.current_player().hand.is_empty() {
             // TODO prevent action where game ends without team burraco
@@ -261,7 +259,7 @@ pub enum DrawAction {
     DrawPile
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum PlayAction {
     StartRun(Run),
     /// run_idx, cards to append
@@ -278,17 +276,16 @@ pub enum PlayAction {
 impl PlayAction {
     pub fn enumerate(team_runs: &Vec<Run>, player_hand: &Cards, moves_allowed: usize) -> Vec<PlayAction> {
         let mut actions = vec![Noop];
-        // start run actions
-        // for now try all
-        // TODO: write smarter that is not O(n^3) :)
+        // start run sequence actions
         for i in 0..player_hand.len() {
             let card1 = player_hand[i];
             for j in 0..player_hand.len() {
                 if i == j { continue };
                 let card2 = player_hand[j];
-
+                
                 let card1_is_wildcard = card1.1 == Two || card1.1 == Joker ;
-                let card2_is_wildcard = card1.1 == Two || card1.1 == Joker ;
+                let card2_is_wildcard = card2.1 == Two || card2.1 == Joker ;
+                
                 
                 if !card1_is_wildcard && !card2_is_wildcard {
                     if card1.0 != card2.0 {
@@ -317,6 +314,29 @@ impl PlayAction {
                 }
             }
         }
+
+        for i in 0..player_hand.len() {
+            let card1 = player_hand[i];
+            for j in (i+1)..player_hand.len() {
+                let card2 = player_hand[j];
+                for k in (j+1)..player_hand.len() {
+                    #[cfg(debug_assertions)]
+                    eprintln!("p-start-g");
+
+                    let card3 = player_hand[k];
+
+                    let maybe_run = Run::build_group_run(
+                        Cards(vec![card1, card2, card3]));
+                    if let Ok(run) = maybe_run {
+                        #[cfg(debug_assertions)]
+                        eprintln!("p-start-g-ok");
+                        actions.push(PlayAction::StartRun(run));
+                    }
+                }
+            }
+        }
+
+        // start run group actions
 
         // append actions 
         for i in 0..player_hand.len() {
@@ -386,5 +406,57 @@ impl PlayAction {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct DiscardAction(pub Card);
+
+
+mod tests {
+    use super::*;
+    use crate::model::Run;
+
+    // ♣ ♦ ♥ ♠
+
+    #[test]
+    fn test_start_run_action() -> Result<(),String> {
+
+        let hand = Cards::of("JK, ♣2, ♣5, ♣7, ♣9, ♣K, ♦6, ♦8, ♦9, ♥10, ♠6, ♠K")?;
+        let actions = PlayAction::enumerate(&vec![], &hand, 0);
+        for action in &actions {
+            println!("{}", action);
+        }
+
+        use std::collections::HashSet;
+        let set: HashSet<_> = actions.into_iter().collect();
+
+        let should_enumerate_runs_s = vec![
+            "♣5,JK,♣7",
+            "♣5,♣2,♣7",
+            "♣7,JK,♣9",
+            "♣7,♣2,♣9",
+            "♦6,♣2,♦8",
+            "♦6,JK,♦8",
+            "JK,♦8,♦9",
+            "♣2,♦8,♦9",
+            "♦8,♦9,JK",
+            "♦8,♦9,♣2"
+            // TODO group runs
+            // TODO: only accept in certain order to prevent state explosion?
+            // "♦6,♠6,♣2"
+        ];
+
+        let should_enumerate_runs: Vec<Result<PlayAction,String>> = should_enumerate_runs_s.iter()
+            .map(|s| Ok(PlayAction::StartRun(Run::build_sequence_run(Cards::of(s)?)?)))
+            .collect();
+        
+        assert!(should_enumerate_runs.iter().all(|r| r.is_ok()));
+
+        for action in should_enumerate_runs {
+            let action = action.unwrap();
+            println!("Validating action enumerated: {}", &action);
+            assert!(set.contains(&action));
+        }
+
+        Ok( () ) 
+    }
+
+}

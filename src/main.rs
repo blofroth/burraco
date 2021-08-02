@@ -12,9 +12,7 @@ mod cli_display;
 mod agent;
 
 fn main() -> Result<(), String> {
-    use actions::DrawAction;
     use actions::PlayAction;
-    use actions::DiscardAction;
     use actions::GamePhase::*;
 
     let state = BurracoState::init_with(2, 2);
@@ -30,6 +28,8 @@ fn main() -> Result<(), String> {
     // let mut agent = DumbAgent{};
     use agent::RandomAgent;
     let mut agent = RandomAgent{ rng: thread_rng() };
+    //use agent::ManualCliAgent;
+    //let mut agent = ManualCliAgent {};
     
     'round: loop {
         if game.state().cards_total() > orig_cards {
@@ -38,6 +38,7 @@ fn main() -> Result<(), String> {
         // poor mans randomization :)
         let draw_action = agent.select_draw_action(game.state());
 
+        println!("Agent: {}", agent.display());
         println!("Draw action: {}", &draw_action);
         game.draw(draw_action)?;
         if let Finished(_) = game.phase() {
@@ -64,6 +65,7 @@ fn main() -> Result<(), String> {
             }
 
             println!("---");
+            println!("Agent: {}", agent.display());
             println!("Playing action: {}", selected_action);
             game.play(selected_action)?;
             if let Finished(_) = game.phase() {
@@ -80,6 +82,7 @@ fn main() -> Result<(), String> {
         }
 
         let discard_action = agent.select_discard_action(&game.current_player().hand, game.state());
+        println!("Agent: {}", agent.display());
         println!("Discard action: {}", discard_action);
         game.discard(discard_action)?;
         if let Finished(_) = game.phase() {

@@ -122,7 +122,7 @@ impl Card {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Cards(pub Vec<Card>);
 
 impl Cards {
@@ -142,7 +142,7 @@ impl Cards {
         Cards(deck)
     }
 
-    fn of(expr: &str) -> Result<Cards, String> {
+    pub fn of(expr: &str) -> Result<Cards, String> {
         if expr.trim().is_empty() {
             return Ok(Cards(vec![]));
         }
@@ -201,13 +201,13 @@ pub struct Team {
     pub has_reached_pot: bool,
     pub has_used_pot: bool,
 }
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum RunType {
     Sequence,
     Group
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Run {
     cards: Cards,
     run_type: RunType
@@ -300,6 +300,40 @@ impl Run {
         Ok( Run { cards, run_type: RunType::Sequence} )
     }
 
+    pub fn build_group_run(cards: Cards) -> Result<Run, String> {
+        if cards.len() < 3 {
+            return Err("Need at least 3 cards to create a group run".into());
+        }
+        let mut cards = cards;
+        cards.sort(); // canonicalize format
+
+        let first_known_rank = cards.iter().filter(|c| c.1 != Joker && c.1 != Two)
+            .map(|c| c.1)
+            .next()
+            .unwrap_or(Two);
+        
+        let mut num_wildcards_used = 0;
+        for i in 0..cards.len() {
+            let card = cards[i];
+
+            if card.1 != first_known_rank && card.1 != Two && card.1 != Joker {
+                return Err(format!("Mismatched rank in group sequence (pos {}): {}, expected {}", i, card.1, first_known_rank));
+            }
+
+            if card.1 == Joker || (card.1 == Two && first_known_rank != Two) {
+                // wildcard used
+                
+                if num_wildcards_used > 0 {
+                    return Err(format!("Too many wildcards in group run (pos {}): {}, already used {}", i, card, num_wildcards_used));
+                }
+
+                num_wildcards_used += 1;
+            }
+        }
+
+        Ok(Run { run_type: RunType::Group, cards} )
+    }
+
     pub fn append(&self, cards: &Cards, append_to: Append) -> Result<Run,String> {
         let mut new_cards = self.cards.clone();
         match append_to {
@@ -314,7 +348,7 @@ impl Run {
         
         match self.run_type {
             RunType::Sequence => Run::build_sequence_run(new_cards),
-            RunType::Group => todo!(),
+            RunType::Group => Run::build_group_run(new_cards),
         }
         
     }
@@ -332,7 +366,7 @@ impl Run {
         new_cards.insert(0, old_card);
         let new_run = match self.run_type() {
             RunType::Sequence => Run::build_sequence_run(new_cards)?,
-            _ => todo!()
+            RunType::Group => Run::build_group_run(new_cards)?,
         };
         Ok(new_run)
     }
@@ -352,7 +386,7 @@ impl Run {
 
         let new_run = match self.run_type() {
             RunType::Sequence => Run::build_sequence_run(new_cards)?,
-            _ => todo!()
+            RunType::Group => Run::build_sequence_run(new_cards)?
         };
         Ok(new_run)
     }
