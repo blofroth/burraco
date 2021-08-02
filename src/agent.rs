@@ -85,7 +85,12 @@ impl<R: Rng + ?Sized> BurracoAgent for RandomAgent<R> {
     }
 
     fn select_play_action(&mut self, actions: Vec<(PlayAction, i32)>, _state: &BurracoState) -> PlayAction {
-        actions.choose(&mut self.rng).expect("we know at least noop exists").clone().0
+        if actions.len() == 1 {
+            actions[0].clone().0
+        } else {
+            (&actions[1..]).choose(&mut self.rng).expect("we know at least noop exists").clone().0
+        }
+        
     }
 
     fn select_discard_action(&mut self, hand: &Cards, _state: &BurracoState) -> DiscardAction {
@@ -103,7 +108,7 @@ use std::io::Write;
 
 impl ManualCliAgent {
     fn display_concise_state(state: &BurracoState) {
-        let (team, player) = state.player_turn;
+        let (team, player) = state.player_team_idxs[state.player_turn];
         
         
         for (_, other_team) in state.teams.iter().enumerate().filter(|(i, _)| *i != team ) {

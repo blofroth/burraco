@@ -32,12 +32,12 @@ impl BurracoGame {
     }
 
     pub fn current_player(&self) -> &Player {
-        let (team, player) = self.state.player_turn;
+        let (team, player) = self.state.player_team_idxs[self.state.player_turn];
         &self.state.teams[team].players[player]
     }
 
     pub fn current_team(&self) -> &Team {
-        let (team, _) = self.state.player_turn;
+        let (team, _player) = self.state.player_team_idxs[self.state.player_turn];
         &self.state.teams[team]
     }
 
@@ -50,7 +50,7 @@ impl BurracoGame {
     }
 
     pub fn draw(&mut self, action: DrawAction) -> Result<(),String> {
-        let (team, player) = self.state.player_turn;
+        let (team, player) = self.state.player_team_idxs[self.state.player_turn];
         
         if self.phase != GamePhase::Draw {
             return Err(format!("Draw action invalid when phase is: {:?}", self.phase));
@@ -106,7 +106,7 @@ impl BurracoGame {
             return Err(format!("Play action invalid when phase is: {:?}", self.phase));
         }
 
-        let (team, player) = self.state.player_turn;
+        let (team, player) = self.state.player_team_idxs[self.state.player_turn];
 
         match action {
             Noop => { self.phase = GamePhase::Discard },
@@ -198,7 +198,7 @@ impl BurracoGame {
         if self.phase != GamePhase::Discard {
             return Err(format!("Discard action invalid when phase is: {:?}", self.phase));
         }
-        let (team, player) = self.state.player_turn;
+        let (team, player) = self.state.player_team_idxs[self.state.player_turn];
         if let Some(index) = self.current_player().hand.iter().position(|c| *c == action.0) {
             self.state.teams[team].players[player].hand.remove(index);
             self.state.open_pile.push(action.0);
@@ -236,16 +236,10 @@ impl BurracoGame {
 
         if self.phase == GamePhase::Draw {
             // advance turn
-            let (mut team, mut player) = self.state.player_turn;
-            let next_team = (team + 1) %  self.state.num_teams;
-            if next_team == 0 {
+            self.state.player_turn = (self.state.player_turn + 1) % self.state.player_team_idxs.len();
+            if self.state.player_turn == self.state.first_player {
                 self.state.round += 1;
             }
-            if next_team == 0 && (team + 1) * (player + 1) == self.state.num_teams * self.state.num_team_players {
-                player = player + 1;
-            }
-            team = next_team;
-            self.state.player_turn = (team, player);
         }
 
 
@@ -439,6 +433,8 @@ pub struct DiscardAction(pub Card);
 
 
 mod tests {
+    use crate::agent::BurracoAgent;
+
     use super::*;
 
     // ♣ ♦ ♥ ♠
@@ -485,5 +481,51 @@ mod tests {
 
         Ok( () ) 
     }
+    #[test]
+    fn test_advance_turn() -> Result<(),String> {
 
+        let state = BurracoState::init_with(2, 2);
+
+        let mut game = BurracoGame::from(state);
+        let (team, player) = game.state.player_team_idxs[game.state.player_turn];
+        assert_eq!(0, team);
+        assert_eq!(0, player);
+
+        use crate::agent::DumbAgent;
+        let mut agent = DumbAgent {};
+        
+        // player 1 (T0, P0)
+        game.draw(agent.select_draw_action(game.state()))?;
+        let (team, player) = game.state.player_team_idxs[game.state.player_turn];
+        assert_eq!(0, team);
+        assert_eq!(0, player);
+        game.play(PlayAction::Noop)?;
+        let (team, player) = game.state.player_team_idxs[game.state.player_turn];
+        assert_eq!(0, team);
+        assert_eq!(0, player);
+        game.discard(agent.select_discard_action(&game.current_player().hand, game.state()))?;
+
+        // player 2 (T1, P0)
+        let (team, player) = game.state.player_team_idxs[game.state.player_turn];
+        assert_eq!(1, team);
+        assert_eq!(0, player);
+
+        game.draw(agent.select_draw_action(game.state()))?;
+        let (team, player) = game.state.player_team_idxs[game.state.player_turn];
+        assert_eq!(1, team);
+        assert_eq!(0, player);
+
+        game.play(PlayAction::Noop)?;
+        let (team, player) = game.state.player_team_idxs[game.state.player_turn];
+        assert_eq!(1, team);
+        assert_eq!(0, player);
+        game.discard(agent.select_discard_action(&game.current_player().hand, game.state()))?;
+
+        // player 3 (T0, P1)
+        let (team, player) = game.state.player_team_idxs[game.state.player_turn];
+        assert_eq!(0, team);
+        assert_eq!(1, player);
+
+        Ok( () )
+    }
 }

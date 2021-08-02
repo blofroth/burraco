@@ -86,7 +86,7 @@ impl fmt::Display for BurracoState {
         write!(f, "  Pot 1: {} cards \n", self.pot1.len() )?;
         write!(f, "  Pot 2: {} cards \n", self.pot2.len() )?;
         write!(f, "Cards tot: {} \n", self.cards_total() )?;
-        let (team, player) = self.player_turn;
+        let (team, player) = self.player_team_idxs[self.player_turn];
         write!(f, "Current round: {} \n", self.round)?;
         write!(f, "Current turn: team {} player {} \n", team, player)
     }

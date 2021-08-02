@@ -1,4 +1,6 @@
 
+use std::io::{Write, stdout};
+
 use model::BurracoState;
 
 use actions::BurracoGame;
@@ -24,19 +26,34 @@ fn main() -> Result<(), String> {
 
     let orig_cards = game.state().cards_total();
 
+    use agent::ManualCliAgent;
+    use agent::MaxAgent;
+    use agent::DumbAgent;
+    use agent::RandomAgent;
+    let mut agents: [Box<dyn BurracoAgent>; 4] = [
+        Box::new(ManualCliAgent {}),
+        // Box::new(MaxAgent {}),
+        Box::new(MaxAgent {}),
+        Box::new(MaxAgent {}),
+        Box::new(MaxAgent {}),
+        // Box::new(DumbAgent {}),
+        // Box::new(RandomAgent{ rng: thread_rng() })
+    ];
+
     // use agent::DumbAgent;
     // let mut agent = DumbAgent{};
     // use agent::RandomAgent;
     // let mut agent = RandomAgent{ rng: thread_rng() };
     // use agent::ManualCliAgent;
     // let mut agent = ManualCliAgent {};
-    use agent::MaxAgent;
-    let mut agent = MaxAgent {};
+    
+
     
     'round: loop {
         if game.state().cards_total() > orig_cards {
             panic!("Cards are procreating! {} vs orig {}", game.state().cards_total(), orig_cards);
         }
+        let agent = &mut agents[game.state().player_turn];
         // poor mans randomization :)
         let draw_action = agent.select_draw_action(game.state());
 
@@ -71,9 +88,10 @@ fn main() -> Result<(), String> {
             println!("Playing action: {}", selected_action);
             game.play(selected_action)?;
             if let Finished(_) = game.phase() {
-                let (team, player) = game.state().player_turn;
+                let player_turn = game.state().player_turn;
+                let (team, player) = game.state().player_team_idxs[player_turn];
                 // TODO: potsetto
-                println!("PLAYER WITH EMPTY HAND: team {}, player {}",  team, player);
+                println!("PLAYER WITH EMPTY HAND: team {}, player {} (P{})",  team, player, player_turn);
                 break 'round;
             }
             println!("---");
@@ -88,8 +106,9 @@ fn main() -> Result<(), String> {
         println!("Discard action: {}", discard_action);
         game.discard(discard_action)?;
         if let Finished(_) = game.phase() {
-            let (team, player) = game.state().player_turn;
-            println!("PLAYER WITH EMPTY HAND: team {}, player {}",  team, player);
+            let player_turn = game.state().player_turn;
+                let (team, player) = game.state().player_team_idxs[player_turn];
+            println!("PLAYER WITH EMPTY HAND: team {}, player {} (P{})",  team, player, player_turn);
             break 'round;
         }
         println!("---");
@@ -102,11 +121,17 @@ fn main() -> Result<(), String> {
         for (team, score) in game.scoreboard().iter().enumerate() {
             println!("  Team {}: {} points", team, score);
         }
+        println!("Winner agents: ");
+        for (i, (team, _)) in game.state().player_team_idxs.iter().enumerate() {
+            if *team == winning_team {
+                println!(" {}", &agents[i].display());
+            }
+        }
         println!("---");
         println!("{}", game);
     } else {
         println!("undefined game abort");
     }
-
+    stdout().flush().map_err(|e| e.to_string())?;
     Ok( () )
 }

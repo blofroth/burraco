@@ -514,7 +514,10 @@ pub struct BurracoState {
     pub pot1: Cards,
     pub pot2: Cards,
     pub teams: Vec<Team>,
-    pub player_turn: (usize, usize), // team idx, teamplayer idx
+    pub player_turn: usize, 
+    pub first_player: usize, 
+    /// (team_idx, in_team_idx)
+    pub player_team_idxs: Vec<(usize,usize)>, 
     pub round: u32
 }
 
@@ -532,7 +535,7 @@ impl BurracoState {
         let pot2 = deck.drain_back(11);
     
         let mut teams = Vec::new();
-        for _i in 0..num_teams {
+        for i in 0..num_teams {
             let mut team_players = Vec::new();
             for j in 0..num_team_players {
                 team_players.push(Player {
@@ -547,6 +550,16 @@ impl BurracoState {
                 played_runs: Vec::new()
             })
         }
+
+        let mut player_team_idxs = Vec::new();
+        for p in 0..num_team_players {
+            for t in 0..num_teams {
+                player_team_idxs.push( (t, p) )
+            }
+        }
+
+        let starting_player = thread_rng().gen_range(0..player_team_idxs.len());
+
         let open_pile = deck.drain_back(1);
         let draw_pile = deck;
         BurracoState {
@@ -557,7 +570,9 @@ impl BurracoState {
             pot1,
             pot2,
             teams,
-            player_turn: (0,0), // TODO: randomize,
+            player_turn: starting_player, 
+            first_player: starting_player, 
+            player_team_idxs,
             round: 0
         }
     }
