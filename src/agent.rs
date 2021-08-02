@@ -7,7 +7,7 @@ use crate::cli_display::print_play_actions;
 
 pub trait BurracoAgent {
     fn select_draw_action(&mut self, state: &BurracoState) -> DrawAction;
-    fn select_play_action(&mut self, actions: Vec<PlayAction>, state: &BurracoState) -> PlayAction;
+    fn select_play_action(&mut self, actions: Vec<(PlayAction, i32)>, state: &BurracoState) -> PlayAction;
     fn select_discard_action(&mut self, hand: &Cards, state: &BurracoState) -> DiscardAction;
     fn display(&self) -> String;
 }
@@ -24,8 +24,8 @@ impl BurracoAgent for DumbAgent {
         draw_action
     }
 
-    fn select_play_action(&mut self, actions: Vec<PlayAction>, _state: &BurracoState) -> PlayAction {
-        actions.into_iter().last().unwrap()
+    fn select_play_action(&mut self, actions: Vec<(PlayAction, i32)>, _state: &BurracoState) -> PlayAction {
+        actions.into_iter().last().unwrap().0
     }
 
     fn select_discard_action(&mut self, hand: &Cards, _state: &BurracoState) -> DiscardAction {
@@ -34,6 +34,35 @@ impl BurracoAgent for DumbAgent {
 
     fn display(&self) -> String {
         "Dumb agent".into()
+    }
+    
+}
+
+pub struct MaxAgent {}
+
+impl BurracoAgent for MaxAgent {
+    fn select_draw_action(&mut self, state: &BurracoState) -> DrawAction {
+        // TODO: some max calculation here of gain?
+        let draw_action = if state.round % 2 == 0 {
+            DrawAction::DrawPile
+        } else {
+            DrawAction::DrawOpen
+        };
+        draw_action
+    }
+
+    fn select_play_action(&mut self, actions: Vec<(PlayAction, i32)>, _state: &BurracoState) -> PlayAction {
+        let max_action = actions.iter().max_by_key(|(_a, d_score)| d_score).expect("at least noop action");
+        max_action.clone().0
+    }
+
+    fn select_discard_action(&mut self, hand: &Cards, _state: &BurracoState) -> DiscardAction {
+        // TODO: some max calculation here of gain?
+        DiscardAction(hand[0])
+    }
+
+    fn display(&self) -> String {
+        "Max action score agent".into()
     }
     
 }
@@ -55,8 +84,8 @@ impl<R: Rng + ?Sized> BurracoAgent for RandomAgent<R> {
         draw_action
     }
 
-    fn select_play_action(&mut self, actions: Vec<PlayAction>, _state: &BurracoState) -> PlayAction {
-        actions.choose(&mut self.rng).expect("we know at least noop exists").clone()
+    fn select_play_action(&mut self, actions: Vec<(PlayAction, i32)>, _state: &BurracoState) -> PlayAction {
+        actions.choose(&mut self.rng).expect("we know at least noop exists").clone().0
     }
 
     fn select_discard_action(&mut self, hand: &Cards, _state: &BurracoState) -> DiscardAction {
@@ -138,7 +167,7 @@ impl BurracoAgent for ManualCliAgent {
         }
     }
 
-    fn select_play_action(&mut self, actions: Vec<PlayAction>, state: &BurracoState) -> PlayAction {
+    fn select_play_action(&mut self, actions: Vec<(PlayAction, i32)>, state: &BurracoState) -> PlayAction {
         println!("[{}]", self.display());
         ManualCliAgent::display_concise_state(state);
         println!("Select a play action:");
@@ -165,7 +194,7 @@ impl BurracoAgent for ManualCliAgent {
                 continue;
             }
             
-            return actions[choice_idx].clone();
+            return actions[choice_idx].clone().0;
         }
     }
 

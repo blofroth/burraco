@@ -1,5 +1,3 @@
-
-use std::cmp::Ordering;
 use std::usize;
 
 use crate::model::BurracoState;
@@ -257,8 +255,10 @@ impl BurracoGame {
     pub fn scoreboard(&self) -> Vec<i32> {
         let mut team_scores = Vec::new();
         for team in &self.state().teams {
+            // TODO: reached but not used deduction?
             let pot_deduction = if team.has_reached_pot { 0 } else { -100 };
-            let runs_score: i32 = team.played_runs.iter().map(|r| r.score().0 + r.score().1 ).sum();
+
+            let runs_score: i32 = team.played_runs.iter().map(|r| r.score() ).sum();
             let cards_deduction: i32 = team.players.iter().map(|p| p.hand.value_sum()).sum();
 
             team_scores.push(pot_deduction + runs_score + cards_deduction);
@@ -299,8 +299,8 @@ pub enum PlayAction {
 }
 
 impl PlayAction {
-    pub fn enumerate(team_runs: &Vec<Run>, player_hand: &Cards, moves_allowed: usize) -> Vec<PlayAction> {
-        let mut actions = vec![Noop];
+    pub fn enumerate(team_runs: &Vec<Run>, player_hand: &Cards, moves_allowed: usize) -> Vec<(PlayAction, i32)> {
+        let mut actions = vec![(Noop, 0)];
         // start run sequence actions
         for i in 0..player_hand.len() {
             let card1 = player_hand[i];
@@ -334,12 +334,14 @@ impl PlayAction {
                     if let Ok(run) = maybe_run {
                         #[cfg(debug_assertions)]
                         eprintln!("p-start-ok");
-                        actions.push(PlayAction::StartRun(run));
+                        let run_score = run.score();
+                        actions.push( (PlayAction::StartRun(run), run_score));
                     }
                 }
             }
         }
 
+        // start run group actions
         for i in 0..player_hand.len() {
             let card1 = player_hand[i];
             for j in (i+1)..player_hand.len() {
@@ -355,7 +357,8 @@ impl PlayAction {
                     if let Ok(run) = maybe_run {
                         #[cfg(debug_assertions)]
                         eprintln!("p-start-g-ok");
-                        actions.push(PlayAction::StartRun(run));
+                        let run_score = run.score();
+                        actions.push( (PlayAction::StartRun(run), run_score ));
                     }
                 }
             }
@@ -369,15 +372,15 @@ impl PlayAction {
             for (j, run) in team_runs.iter().enumerate() {
                 #[cfg(debug_assertions)]
                 eprintln!("p-append");
-                if let Ok(_) = run.append(&card, Append::Top) {
+                if let Ok(new_run) = run.append(&card, Append::Top) {
                     #[cfg(debug_assertions)]
                     eprintln!("p-append-ok");
-                    actions.push(PlayAction::AppendTop(j, card.clone()));
+                    actions.push( (PlayAction::AppendTop(j, card.clone()), new_run.score() - run.score() ) );
                 }
-                if let Ok(_) = run.append(&card, Append::Bottom) {
+                if let Ok(new_run) = run.append(&card, Append::Bottom) {
                     #[cfg(debug_assertions)]
                     eprintln!("p-append-ok");
-                    actions.push(PlayAction::AppendBottom(j, card.clone()));
+                    actions.push( (PlayAction::AppendBottom(j, card.clone()), new_run.score() - run.score()) );
                 }
             }
         }
@@ -396,10 +399,10 @@ impl PlayAction {
                     }
                     #[cfg(debug_assertions)]
                     eprintln!("p-replace");
-                    if let Ok(_) = run.replace_wildcard(k, &card) {
+                    if let Ok(new_run) = run.replace_wildcard(k, &card) {
                         #[cfg(debug_assertions)]
                         eprintln!("p-replace-ok");
-                        actions.push(PlayAction::ReplaceWildcard(i, k, card));
+                        actions.push( (PlayAction::ReplaceWildcard(i, k, card), new_run.score() - run.score() ) );
                     }
                 }
             }
@@ -417,10 +420,10 @@ impl PlayAction {
                     for to in 0..run.cards().len() {
                         #[cfg(debug_assertions)]
                         eprintln!("p-move");
-                        if let Ok(_) = run.move_card(from, to) {
+                        if let Ok(new_run) = run.move_card(from, to) {
                             #[cfg(debug_assertions)]
                             eprintln!("p-move-ok");
-                            actions.push(PlayAction::MoveCard(i, from, to));
+                            actions.push( (PlayAction::MoveCard(i, from, to), new_run.score() - run.score() ));
                         }
                     }
                 }
@@ -437,7 +440,6 @@ pub struct DiscardAction(pub Card);
 
 mod tests {
     use super::*;
-    use crate::model::Run;
 
     // ♣ ♦ ♥ ♠
 
@@ -446,12 +448,12 @@ mod tests {
 
         let hand = Cards::of("JK, ♣2, ♣5, ♣7, ♣9, ♣K, ♦6, ♦8, ♦9, ♥10, ♠6, ♠K")?;
         let actions = PlayAction::enumerate(&vec![], &hand, 0);
-        for action in &actions {
+        for (action, _d_score) in &actions {
             println!("{}", action);
         }
 
         use std::collections::HashSet;
-        let set: HashSet<_> = actions.into_iter().collect();
+        let set: HashSet<_> = actions.into_iter().map(|(a, _s)| a).collect();
 
         let should_enumerate_runs_s = vec![
             "♣5,JK,♣7",

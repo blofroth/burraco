@@ -65,7 +65,7 @@ impl Rank {
     pub fn value(&self) -> i32 {
         match self.index() {
             3..=7 => 5,
-            7..=13 => 10,
+            8..=13 => 10,
             14 => 15,
             2 => 20,
             -2 => 30,
@@ -239,12 +239,96 @@ impl Run {
         self.run_type
     }
 
+    pub fn is_burraco(&self) -> bool {
+        self.cards.len() >= 7
+    }
+
+    pub fn burraco_value(&self) -> i32 {
+        if self.is_burraco() {
+            match self.run_type {
+                RunType::Sequence => {
+                    let mut num_clean_in_sequence = 0;
+                    let mut max_num_clean_in_sequence = 0;
+
+                    let mut last_was_clean = false;
+
+                    for i in 1..self.cards.len() {
+                        let prev_card = self.cards[i-1]; 
+                        let card = self.cards[i];
+        
+                        let mut clean_transition = false;
+
+                        if prev_card.0 == card.0 {
+                            if prev_card.1 == Two {
+                                if card.1 == Numerical(3) {
+                                    // Two used cleanly as two in sequence
+                                    clean_transition = true
+                                } 
+                            } else {
+                                clean_transition = true;
+                            }
+                        } 
+
+                        if i == self.cards.len() - 1 { 
+                            // last card
+                            
+                            if card.1 == Two {
+                                // cover dirty case not validated by above prev clean two check
+                                clean_transition = false;
+                            }
+
+                            if last_was_clean && clean_transition {
+                                // count up for this card
+                                num_clean_in_sequence += 1;
+                            }
+                        }
+
+                        if clean_transition { 
+                            // count up for prev card
+                            num_clean_in_sequence += 1;
+                        } else {
+                            if last_was_clean {
+                                num_clean_in_sequence += 1; // max should include this card
+                            }
+                            max_num_clean_in_sequence = max_num_clean_in_sequence.max(num_clean_in_sequence);
+                            num_clean_in_sequence = 0;
+                        }
+
+                        last_was_clean = clean_transition;
+                    }
+                    if num_clean_in_sequence == self.cards.len() {
+                        if num_clean_in_sequence == 13 {
+                            300
+                        } else {
+                            200
+                        }
+                    } else if max_num_clean_in_sequence >= 7 && max_num_clean_in_sequence == self.cards.len() - 1 {
+                        // has to be a wildcard in either end
+                        150 
+                    } else {
+                        100
+                    }
+                }
+                RunType::Group => {
+                    100 // TODO
+                }
+            }
+        } else {
+            0
+        }
+    }
+
     /// to (burraco_score, cards_score)
-    pub fn score(&self) -> (i32, i32) {
+    pub fn score(&self) -> i32 {
+        let (burraco_score, cards_score) = self.score_burraco_cards();
+        burraco_score + cards_score
+    }
+    pub fn score_burraco_cards(&self) -> (i32, i32) {
         let cards_score: i32 = self.cards.value_sum();
 
+        let burraco_score = self.burraco_value();
         // TODO: burraco_score
-        (0, cards_score)
+        (burraco_score, cards_score)
     }
 
     pub fn build_sequence_run(cards: Cards) -> Result<Run, String> {
@@ -561,6 +645,25 @@ mod tests {
     #[test]
     fn test_bad_final_wildcard() -> Result<(),String> {
         assert!(dbg!(Run::build_sequence_run(Cards::of("♥K,♥A,JK")?)).is_err());
+        Ok( () ) 
+    }
+
+    #[test]
+    fn test_burraco_score() -> Result<(),String> {
+        assert_eq!(0, Run::build_sequence_run(Cards::of("♠3,♠4,♠5")?).unwrap().burraco_value());
+
+        assert_eq!(100, Run::build_sequence_run(Cards::of("JK,♠4,♠5,♠6,♠7,♠8,♠9")?).unwrap().burraco_value());
+        assert_eq!(100, Run::build_sequence_run(Cards::of("♠3,♠4,♠5,♠6,♠7,♠8,♠2")?).unwrap().burraco_value());
+        assert_eq!(100, Run::build_sequence_run(Cards::of("♠2,♠3,♠4,♠2,♠6,♠7,♠8")?).unwrap().burraco_value());
+
+        assert_eq!(150, Run::build_sequence_run(Cards::of("♠3,♠4,♠5,♠6,♠7,♠8,♠9,JK")?).unwrap().burraco_value());
+        assert_eq!(150, Run::build_sequence_run(Cards::of("♠2,♠3,♠4,♠5,♠6,♠7,♠8,♠2")?).unwrap().burraco_value());
+
+        assert_eq!(200, Run::build_sequence_run(Cards::of("♠3,♠4,♠5,♠6,♠7,♠8,♠9")?).unwrap().burraco_value());
+
+        assert_eq!(300, Run::build_sequence_run(Cards::of("♠2,♠3,♠4,♠5,♠6,♠7,♠8,♠9,♠10,♠J,♠Q,♠K,♠A")?).unwrap().burraco_value());
+        assert_eq!(300, Run::build_sequence_run(Cards::of("♠A,♠2,♠3,♠4,♠5,♠6,♠7,♠8,♠9,♠10,♠J,♠Q,♠K")?).unwrap().burraco_value());
+        
         Ok( () ) 
     }
 

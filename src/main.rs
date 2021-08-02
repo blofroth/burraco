@@ -26,10 +26,12 @@ fn main() -> Result<(), String> {
 
     // use agent::DumbAgent;
     // let mut agent = DumbAgent{};
-    use agent::RandomAgent;
-    let mut agent = RandomAgent{ rng: thread_rng() };
-    //use agent::ManualCliAgent;
-    //let mut agent = ManualCliAgent {};
+    // use agent::RandomAgent;
+    // let mut agent = RandomAgent{ rng: thread_rng() };
+    // use agent::ManualCliAgent;
+    // let mut agent = ManualCliAgent {};
+    use agent::MaxAgent;
+    let mut agent = MaxAgent {};
     
     'round: loop {
         if game.state().cards_total() > orig_cards {

@@ -61,8 +61,8 @@ impl fmt::Display for Cards {
 impl fmt::Display for Run {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.run_type() {
-            Sequence => write!(f, "Sequence: {}", self.cards() ),
-            Group => write!(f, "Group: {}", self.cards() ),
+            Sequence => write!(f, "Sequence: {} ({} p)", self.cards(), self.score()  ),
+            Group => write!(f, "Group: {} ({} p)", self.cards(), self.score()  ),
         }
     }
 }
@@ -125,9 +125,9 @@ impl fmt::Display for PlayAction {
 }
 
 
-pub fn print_play_actions(actions: &Vec<PlayAction>) {
+pub fn print_play_actions(actions: &Vec<(PlayAction,i32)>) {
     println!("Available actions:");
-    for (i, action) in actions.iter().enumerate() {
+    for (i, (action, _d_score)) in actions.iter().enumerate() {
         println!("  {}: {}", i, action );
     }
 }
