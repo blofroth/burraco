@@ -474,7 +474,7 @@ impl Run {
         new_cards.insert(0, old_card);
         let new_run = match self.run_type() {
             RunType::Sequence => Run::build_sequence_run(new_cards)?,
-            RunType::Group => Run::build_group_run(new_cards)?,
+            RunType::Group => return Err("No point in replacing wildcard in group, use append".into()),
         };
         Ok(new_run)
     }
@@ -522,6 +522,15 @@ pub struct BurracoState {
 }
 
 impl BurracoState {
+
+    pub fn curr_team_player(&self) -> (usize, usize) {
+        self.player_team_idxs[self.player_turn]
+    }
+
+    pub fn curr_team(&self) -> usize {
+        let (team, _) = self.player_team_idxs[self.player_turn];
+        team
+    }
 
     pub fn init_with(num_teams: usize, num_team_players: usize) -> BurracoState {
         use rand::prelude::*;

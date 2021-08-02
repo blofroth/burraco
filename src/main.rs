@@ -30,11 +30,12 @@ fn main() -> Result<(), String> {
     use agent::MaxAgent;
     use agent::DumbAgent;
     use agent::RandomAgent;
+    use agent::SmartAgent;
     let mut agents: [Box<dyn BurracoAgent>; 4] = [
-        Box::new(ManualCliAgent {}),
+        Box::new(SmartAgent {}),
         // Box::new(MaxAgent {}),
         Box::new(MaxAgent {}),
-        Box::new(MaxAgent {}),
+        Box::new(SmartAgent {}),
         Box::new(MaxAgent {}),
         // Box::new(DumbAgent {}),
         // Box::new(RandomAgent{ rng: thread_rng() })
@@ -77,7 +78,7 @@ fn main() -> Result<(), String> {
             }
 
             let available_actions = PlayAction::enumerate(&game.current_team().played_runs, &game.current_player().hand, moves_allowed);
-            print_play_actions(&available_actions);
+            print_play_actions(&available_actions, &game.current_team().played_runs);
             let selected_action = agent.select_play_action(available_actions, game.state());
             if let PlayAction::MoveCard(_,_,_) = selected_action {
                 moves_allowed -= 1;

@@ -3,6 +3,7 @@ use std::usize;
 use crate::model::BurracoState;
 use crate::model::Card;
 use crate::model::Cards;
+use crate::model::RunType;
 use crate::model::Team;
 use crate::model::Rank::*;
 use crate::model::Player;
@@ -161,11 +162,17 @@ impl BurracoGame {
 
             },
             MoveCard(run_idx, from, to) => {
+                if from == to {
+                    return Err("No use moving card to same index".into())
+                }
                 let run = &self.state.teams[team].played_runs.get(run_idx).ok_or("Non-existing run index".to_string())?;
                 let new_run = run.move_card(from, to)?;
                 self.state.teams[team].played_runs[run_idx] = new_run;
             },
         }
+
+        self.state.teams[team].played_runs.sort_by_key(|r| (r.run_type() != RunType::Sequence, r.cards().len()));
+        
         if self.current_player().hand.is_empty() {
             // TODO prevent action where game ends without team burraco
             if !self.current_team().has_reached_pot {
@@ -214,11 +221,13 @@ impl BurracoGame {
                 if !self.state.pot1.is_empty() {
                     // "flying pot", can continue playing
                     self.state.teams[team].players[player].hand.append(&mut self.state.pot1.drain_back(11));
+                    self.state.teams[team].players[player].hand.sort();
                     self.state.teams[team].has_reached_pot = true;
                     self.phase = GamePhase::Draw;
                 } else if !self.state.pot2.is_empty() {
                     // "flying pot", can continue playing
                     self.state.teams[team].players[player].hand.append(&mut self.state.pot2.drain_back(11));
+                    self.state.teams[team].players[player].hand.sort();
                     self.state.teams[team].has_reached_pot = true;
                     self.phase = GamePhase::Draw;
                 } else {
@@ -412,6 +421,9 @@ impl PlayAction {
                     }
     
                     for to in 0..run.cards().len() {
+                        if from == to {
+                            continue;
+                        }
                         #[cfg(debug_assertions)]
                         eprintln!("p-move");
                         if let Ok(new_run) = run.move_card(from, to) {

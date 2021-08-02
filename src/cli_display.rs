@@ -125,10 +125,17 @@ impl fmt::Display for PlayAction {
 }
 
 
-pub fn print_play_actions(actions: &Vec<(PlayAction,i32)>) {
+pub fn print_play_actions(actions: &Vec<(PlayAction,i32)>, runs: &Vec<Run>) {
     println!("Available actions:");
     for (i, (action, _d_score)) in actions.iter().enumerate() {
-        println!("  {}: {}", i, action );
+        let mut extra = String::new();
+        match &action {
+            PlayAction::AppendTop(run_idx, _) => extra.push_str(&format!(" - {}", runs[*run_idx].cards())),
+            PlayAction::AppendBottom(run_idx, _) => extra.push_str(&format!(" - {}", runs[*run_idx].cards())),
+            PlayAction::MoveCard(run_idx, _from, _to) => extra.push_str(&format!(" - {}", runs[*run_idx].cards())),
+            _ => {}
+        };
+        println!("  {}: {}{}", i, action, extra );
     }
 }
 
