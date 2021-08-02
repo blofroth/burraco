@@ -1,4 +1,7 @@
 
+use std::cmp::Ordering;
+use std::usize;
+
 use crate::model::BurracoState;
 use crate::model::Card;
 use crate::model::Cards;
@@ -71,7 +74,7 @@ impl BurracoGame {
 
         self.state.teams[team].players[player].hand.sort();
         if self.state.draw_pile.is_empty() {
-            self.phase = GamePhase::Finished(999); // TODO calculate winner
+            self.phase = GamePhase::Finished(self.winning_team()); // TODO calculate winner
             Ok( () )   
         } else {
             self.phase = GamePhase::Play;
@@ -178,12 +181,12 @@ impl BurracoGame {
                     self.state.teams[team].has_reached_pot = true;
                 } else {
                     // both pots taken, game ends (should really happen in other top else clause?)
-                    self.phase = GamePhase::Finished(999); // TODO: calculate winner 
+                    self.phase = GamePhase::Finished(self.winning_team());
                 }
             } else {
                 // team has already reached one pot
                 // TODO: game should end, I think
-                self.phase = GamePhase::Finished(999); // TODO: calculate winner 
+                self.phase = GamePhase::Finished(self.winning_team());
             }
         } 
 
@@ -217,17 +220,17 @@ impl BurracoGame {
                     self.phase = GamePhase::Draw;
                 } else if !self.state.pot2.is_empty() {
                     // "flying pot", can continue playing
-                    self.state.teams[team].players[player].hand.append(&mut self.state.pot1.drain_back(11));
+                    self.state.teams[team].players[player].hand.append(&mut self.state.pot2.drain_back(11));
                     self.state.teams[team].has_reached_pot = true;
                     self.phase = GamePhase::Draw;
                 } else {
                     // both pots taken
                     // TODO: should game really end? can other team player have valid moves if not used pot?
-                    self.phase = GamePhase::Finished(999); // TODO: calculate winner 
+                    self.phase = GamePhase::Finished(self.winning_team());
                 }
             } else {
                 // team has already reached one pot, game ends
-                self.phase = GamePhase::Finished(999); // TODO: calculate winner 
+                self.phase = GamePhase::Finished(self.winning_team());
             }
         } else {
             self.phase = GamePhase::Draw;
@@ -251,6 +254,28 @@ impl BurracoGame {
         Ok( () )
     }
 
+    pub fn scoreboard(&self) -> Vec<i32> {
+        let mut team_scores = Vec::new();
+        for team in &self.state().teams {
+            let pot_deduction = if team.has_reached_pot { 0 } else { -100 };
+            let runs_score: i32 = team.played_runs.iter().map(|r| r.score().0 + r.score().1 ).sum();
+            let cards_deduction: i32 = team.players.iter().map(|p| p.hand.value_sum()).sum();
+
+            team_scores.push(pot_deduction + runs_score + cards_deduction);
+        }
+
+        team_scores
+    }
+
+    pub fn winning_team(&self) -> usize {
+        let index_of_max: Option<usize> = self.scoreboard()
+            .iter()
+            .enumerate()
+            .max_by(|(_, a), (_, b)| a.cmp(b))
+            .map(|(index, _)| index);
+
+        index_of_max.expect("we know there are teams")
+    } 
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

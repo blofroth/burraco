@@ -95,6 +95,7 @@ impl fmt::Display for BurracoState {
 impl fmt::Display for BurracoGame {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.state())?;
+        write!(f, "Scoreboard: {:?} \n", &self.scoreboard() )?;
         write!(f, "Current phase: {:?} \n", &self.phase() )?;
         write!(f, "Current hand: {} \n", self.current_player().hand )?;
         write!(f, "---")

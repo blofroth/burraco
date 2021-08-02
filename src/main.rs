@@ -97,6 +97,9 @@ fn main() -> Result<(), String> {
     if let Finished(winning_team) = game.phase() {
         println!("---");
         println!("GAME FINISHED, winner is team: {}", winning_team);
+        for (team, score) in game.scoreboard().iter().enumerate() {
+            println!("  Team {}: {} points", team, score);
+        }
         println!("---");
         println!("{}", game);
     } else {

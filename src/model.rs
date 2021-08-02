@@ -61,6 +61,18 @@ impl Rank {
             Joker => -2 // not in any sequence
         }
     }
+
+    pub fn value(&self) -> i32 {
+        match self.index() {
+            3..=7 => 5,
+            7..=13 => 10,
+            14 => 15,
+            2 => 20,
+            -2 => 30,
+            _ => panic!("invalid Rank index value")
+        }
+    }
+
     pub fn from_index(index: i16) -> Rank {
         match index {
             2 => Two,
@@ -173,6 +185,10 @@ impl Cards {
             val_tpl(a).cmp(&val_tpl(b))
         })
     } 
+
+    pub fn value_sum(&self) -> i32 {
+        self.iter().map(|c| c.1.value()).sum()
+    }
 }
 
 impl Deref for Cards {
@@ -221,6 +237,14 @@ impl Run {
 
     pub fn run_type(&self) -> RunType {
         self.run_type
+    }
+
+    /// to (burraco_score, cards_score)
+    pub fn score(&self) -> (i32, i32) {
+        let cards_score: i32 = self.cards.value_sum();
+
+        // TODO: burraco_score
+        (0, cards_score)
     }
 
     pub fn build_sequence_run(cards: Cards) -> Result<Run, String> {
