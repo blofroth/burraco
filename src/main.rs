@@ -35,7 +35,7 @@ fn main() -> Result<(), String> {
         Box::new(SmartAgent {}),
         // Box::new(MaxAgent {}),
         Box::new(MaxAgent {}),
-        Box::new(SmartAgent {}),
+        Box::new(MaxAgent {}),
         Box::new(MaxAgent {}),
         // Box::new(DumbAgent {}),
         // Box::new(RandomAgent{ rng: thread_rng() })
