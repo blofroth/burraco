@@ -508,9 +508,10 @@ impl PlayAction {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct DiscardAction(pub Card);
 
+#[cfg(test)]
+
 mod tests {
     use crate::agent::BurracoAgent;
-
     use super::*;
 
     // ♣ ♦ ♥ ♠
@@ -584,7 +585,10 @@ mod tests {
 
     #[test]
     fn test_advance_turn() -> Result<(), String> {
-        let state = BurracoState::init_with(2, 2);
+        let mut state = BurracoState::init_with(2, 2);
+        // for deterministic test
+        state.first_player = 0;
+        state.player_turn = 0;
 
         let mut game = BurracoGame::from(state);
         let (team, player) = game.state.player_team_idxs[game.state.player_turn];

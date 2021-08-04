@@ -5,7 +5,7 @@ use burraco::model::BurracoState;
 use burraco::actions::BurracoGame;
 use burraco::agent::BurracoAgent;
 use burraco::cli_display::print_play_actions;
-use rand::thread_rng;
+use burraco::agent::*;
 
 fn main() -> Result<(), String> {
     use burraco::actions::GamePhase::*;
@@ -20,11 +20,6 @@ fn main() -> Result<(), String> {
 
     let orig_cards = game.state().cards_total();
 
-    use burraco::agent::DumbAgent;
-    use burraco::agent::ManualCliAgent;
-    use burraco::agent::MaxAgent;
-    use burraco::agent::RandomAgent;
-    use burraco::agent::SmartAgent;
     let mut agents: [Box<dyn BurracoAgent>; 4] = [
         Box::new(ManualCliAgent {}),
         // Box::new(MaxAgent {}),

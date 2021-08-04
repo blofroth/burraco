@@ -8,10 +8,6 @@ use burraco::actions::DiscardAction;
 use burraco::actions::DrawAction;
 use burraco::actions::GamePhase;
 use burraco::actions::PlayAction;
-use burraco::agent::BurracoAgent;
-use burraco::agent::DumbAgent;
-use burraco::agent::ManualCliAgent;
-use burraco::agent::SmartAgent;
 use burraco::model::BurracoState;
 use burraco::model::Card;
 use burraco::model::Cards;
@@ -19,6 +15,7 @@ use burraco::model::Rank;
 use burraco::model::Run;
 use burraco::model::Suit;
 use seed::{prelude::*, *};
+use burraco::agent::*;
 
 // ------ ------
 //     Init
@@ -203,11 +200,11 @@ fn update(msg: Msg, model: &mut Model, _: &mut impl Orders<Msg>) {
                     model.curr_player_moves_allowed = 0;
                 }
                 GamePhase::Finished(winning_team) => {
-                    (model.last_move = format!(
+                    model.last_move = format!(
                         "Winner is team {}. Scores: {:?}",
                         winning_team,
                         &model.game.scoreboard()
-                    ))
+                    )
                 }
             }
         }
