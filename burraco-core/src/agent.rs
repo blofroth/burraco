@@ -22,12 +22,12 @@ pub struct DumbAgent {}
 
 impl BurracoAgent for DumbAgent {
     fn select_draw_action(&mut self, state: &BurracoState) -> DrawAction {
-        let draw_action = if state.round % 2 == 0 {
+        
+        if state.round % 2 == 0 {
             DrawAction::DrawPile
         } else {
             DrawAction::DrawOpen
-        };
-        draw_action
+        }
     }
 
     fn select_play_action(
@@ -76,12 +76,12 @@ impl SmartAgent {
 impl BurracoAgent for SmartAgent {
     fn select_draw_action(&mut self, state: &BurracoState) -> DrawAction {
         // TODO smarter draw?
-        let draw_action = if state.round % 2 == 0 {
+        
+        if state.round % 2 == 0 {
             DrawAction::DrawPile
         } else {
             DrawAction::DrawOpen
-        };
-        draw_action
+        }
     }
 
     fn select_play_action(
@@ -109,12 +109,12 @@ pub struct MaxAgent {}
 impl BurracoAgent for MaxAgent {
     fn select_draw_action(&mut self, state: &BurracoState) -> DrawAction {
         // TODO: some max calculation here of gain?
-        let draw_action = if state.round % 2 == 0 {
+        
+        if state.round % 2 == 0 {
             DrawAction::DrawPile
         } else {
             DrawAction::DrawOpen
-        };
-        draw_action
+        }
     }
 
     fn select_play_action(
@@ -157,12 +157,12 @@ impl<R: Rng + ?Sized> RandomAgent<R> {
 
 impl<R: Rng + ?Sized> BurracoAgent for RandomAgent<R> {
     fn select_draw_action(&mut self, _state: &BurracoState) -> DrawAction {
-        let draw_action = if self.rng.gen::<bool>() {
+        
+        if self.rng.gen::<bool>() {
             DrawAction::DrawPile
         } else {
             DrawAction::DrawOpen
-        };
-        draw_action
+        }
     }
 
     fn select_play_action(
@@ -296,7 +296,7 @@ impl BurracoAgent for ManualCliAgent {
                 .expect("Failed to read line");
             println!();
 
-            let action = match &choice.trim()[..] {
+            let action = match choice.trim() {
                 "0" => DrawAction::DrawOpen,
                 "1" => DrawAction::DrawPile,
                 _ => {
@@ -386,7 +386,7 @@ impl BurracoAgent for ManualCliAgent {
                 continue;
             }
 
-            return DiscardAction(hand[choice_idx].clone());
+            return DiscardAction(hand[choice_idx]);
         }
     }
 

@@ -163,49 +163,47 @@ fn update(msg: Msg, model: &mut Model, _: &mut impl Orders<Msg>) {
                 .error_msg
                 .push_str(&mut format!("Bad action ({:?}) in phase: {:?}", m, p)),
         }
-    } else {
-        if let Msg::Advance = msg {
-            match model.game.phase() {
-                GamePhase::Draw => {
-                    let curr_move = model.agents[model.game.state().player_turn]
-                        .select_draw_action(model.game.state());
-                    model.last_move =
-                        format!("{} - Player {}", &curr_move, model.game.state().player_turn);
-                    model.game.draw(curr_move).expect("valid draw action");
-                    model.curr_player_moves_allowed = model.game.current_team().played_runs.len();
-                }
-                GamePhase::Play => {
-                    let curr_move = model.agents[model.game.state().player_turn]
-                        .select_play_action(
-                            PlayAction::enumerate(
-                                &model.game.current_team().played_runs,
-                                &model.game.current_player().hand,
-                                7,
-                            ),
-                            model.game.state(),
-                        );
-                    model.last_move =
-                        format!("{} - Player {}", &curr_move, model.game.state().player_turn);
-                    model.game.play(curr_move).expect("valid play action")
-                }
-                GamePhase::Discard => {
-                    let curr_move = model.agents[model.game.state().player_turn]
-                        .select_discard_action(
+    } else if let Msg::Advance = msg {
+        match model.game.phase() {
+            GamePhase::Draw => {
+                let curr_move = model.agents[model.game.state().player_turn]
+                    .select_draw_action(model.game.state());
+                model.last_move =
+                    format!("{} - Player {}", &curr_move, model.game.state().player_turn);
+                model.game.draw(curr_move).expect("valid draw action");
+                model.curr_player_moves_allowed = model.game.current_team().played_runs.len();
+            }
+            GamePhase::Play => {
+                let curr_move = model.agents[model.game.state().player_turn]
+                    .select_play_action(
+                        PlayAction::enumerate(
+                            &model.game.current_team().played_runs,
                             &model.game.current_player().hand,
-                            model.game.state(),
-                        );
-                    model.last_move =
-                        format!("{} - Player {}", &curr_move, model.game.state().player_turn);
-                    model.game.discard(curr_move).expect("valid discard");
-                    model.curr_player_moves_allowed = 0;
-                }
-                GamePhase::Finished(winning_team) => {
-                    model.last_move = format!(
-                        "Winner is team {}. Scores: {:?}",
-                        winning_team,
-                        &model.game.scoreboard()
-                    )
-                }
+                            7,
+                        ),
+                        model.game.state(),
+                    );
+                model.last_move =
+                    format!("{} - Player {}", &curr_move, model.game.state().player_turn);
+                model.game.play(curr_move).expect("valid play action")
+            }
+            GamePhase::Discard => {
+                let curr_move = model.agents[model.game.state().player_turn]
+                    .select_discard_action(
+                        &model.game.current_player().hand,
+                        model.game.state(),
+                    );
+                model.last_move =
+                    format!("{} - Player {}", &curr_move, model.game.state().player_turn);
+                model.game.discard(curr_move).expect("valid discard");
+                model.curr_player_moves_allowed = 0;
+            }
+            GamePhase::Finished(winning_team) => {
+                model.last_move = format!(
+                    "Winner is team {}. Scores: {:?}",
+                    winning_team,
+                    &model.game.scoreboard()
+                )
             }
         }
     }
@@ -272,7 +270,7 @@ fn card(card: &Card) -> Node<Msg> {
         format!("{}", card.1)
     };
     let rank_lower = rank_upper.to_lowercase();
-    let (suit_text, suit_class) = card_css_suit_class(&card);
+    let (suit_text, suit_class) = card_css_suit_class(card);
     div![
         C![
             "card",
@@ -382,7 +380,7 @@ fn view(model: &Model) -> Node<Msg> {
         //pre![format!("{}", model.game)],
         //pre![format!("{}", model.last_view)],
         div!["Last move: ", &model.last_move],
-        div!["Error messages", pre![format!("{}", model.error_msg)]],
+        div!["Error messages", pre![model.error_msg.to_string()]],
         div![
             C![
                 "playingCards",

@@ -169,7 +169,7 @@ impl Cards {
             return Ok(Cards(vec![]));
         }
         let cards: Result<Vec<_>, _> = expr
-            .split(",")
+            .split(',')
             .map(|part| Card::parse(part.trim()))
             .collect();
         Ok(Cards(cards?))
@@ -337,9 +337,7 @@ impl Run {
             return Err("Need at least 3 cards to create a sequence run".into());
         }
         let first_known_suit = cards
-            .iter()
-            .filter(|c| c.1 != Joker && c.1 != Two)
-            .next()
+            .iter().find(|c| c.1 != Joker && c.1 != Two)
             .ok_or("Need at least some non wild cards for sequence run".to_string())?
             .0;
         let num_same_two = cards
@@ -396,8 +394,8 @@ impl Run {
                 _ => None,
             };
 
-            if let Some(_) = curr_wildcard_replacement {
-                if let Some(_) = wildcard_replaces {
+            if curr_wildcard_replacement.is_some() {
+                if wildcard_replaces.is_some() {
                     return Err("You have already used a wildcard in this run".into());
                 } else {
                     wildcard_replaces = curr_wildcard_replacement;
@@ -510,7 +508,7 @@ impl Run {
             return Err("Cannot replace at invalid position".into());
         }
 
-        let old_card = mem::replace(&mut new_cards[at], card.clone());
+        let old_card = mem::replace(&mut new_cards[at], *card);
         new_cards.insert(0, old_card);
         let new_run = match self.run_type() {
             RunType::Sequence => Run::build_sequence_run(new_cards)?,
@@ -528,7 +526,7 @@ impl Run {
             return Err("Cannot move from/to invalid position".into());
         }
 
-        let wildcard = new_cards[from].clone();
+        let wildcard = new_cards[from];
         // assume we don't need to verify card types here
         // should only be wildcards and ace that are allowed to move
 
