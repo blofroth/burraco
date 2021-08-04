@@ -3,6 +3,8 @@
 // but some rules are too "annoying" or are not applicable for your case.)
 #![allow(clippy::wildcard_imports)]
 
+use std::collections::HashSet;
+
 use burraco::actions::BurracoGame;
 use burraco::actions::DiscardAction;
 use burraco::actions::DrawAction;
@@ -10,6 +12,7 @@ use burraco::actions::GamePhase;
 use burraco::actions::PlayAction;
 use burraco::agent::*;
 use burraco::model::BurracoState;
+use burraco::model::Cards;
 use seed::prelude::*;
 
 mod view;
@@ -62,6 +65,7 @@ pub struct GameModel {
     play_choices: Vec<String>,
     discard_choices: Vec<String>,
     curr_player_moves_allowed: usize,
+    selected_cards: HashSet<usize>,
 }
 
 impl GameModel {
@@ -88,6 +92,13 @@ impl GameModel {
 
                     let mut action_strs: Vec<_> = actions
                         .into_iter()
+                        .filter(|(a, _)| {
+                            filter_play_action(
+                                a,
+                                &self.selected_cards,
+                                &self.game.current_player().hand,
+                            )
+                        })
                         .map(|(a, _d_score)| format!("{}", a))
                         .collect();
                     self.play_choices.append(&mut action_strs);
@@ -97,10 +108,14 @@ impl GameModel {
                 }
 
                 GamePhase::Discard => {
-                    let cards = self.game.current_player().hand.0.clone();
-                    let mut card_str: Vec<_> = cards.iter().map(|c| format!("{}", c)).collect();
-
-                    self.discard_choices.append(&mut card_str);
+                    if self.selected_cards.len() == 1 {
+                        self.discard_choices.clear();
+                        self.discard_choices.push(format!(
+                            "Discard {}",
+                            self.game.current_player().hand
+                                [*self.selected_cards.iter().next().unwrap()]
+                        ));
+                    }
 
                     self.draw_choices.clear();
                     self.play_choices.clear();
@@ -162,6 +177,7 @@ pub enum Msg {
     Draw(usize),
     Play(usize),
     Discard(usize),
+    Select(usize),
     Advance,
 }
 
@@ -208,6 +224,7 @@ fn update(msg: RootMsg, model: &mut Model, orders: &mut impl Orders<RootMsg>) {
                     play_choices: vec![],
                     discard_choices: vec![],
                     curr_player_moves_allowed: 0,
+                    selected_cards: HashSet::new(),
                 };
 
                 game_model.update_choices();
@@ -225,6 +242,37 @@ fn update(msg: RootMsg, model: &mut Model, orders: &mut impl Orders<RootMsg>) {
                 .error_msg
                 .push_str("Bad message when no game initated"),
         }
+    }
+}
+
+fn filter_play_action(action: &PlayAction, selected_cards: &HashSet<usize>, hand: &Cards) -> bool {
+    if selected_cards.is_empty() {
+        return *action == PlayAction::Noop;
+    }
+    match action {
+        PlayAction::StartRun(run) => {
+            selected_cards.len() == 3
+                && selected_cards
+                    .iter()
+                    .all(|i| run.cards().iter().any(|c1| *c1 == hand[*i]))
+        }
+        PlayAction::AppendTop(_, cards) => {
+            selected_cards.len() == cards.len()
+                && selected_cards
+                    .iter()
+                    .all(|i| cards.iter().any(|c1| *c1 == hand[*i]))
+        }
+        PlayAction::AppendBottom(_, cards) => {
+            selected_cards.len() == cards.len()
+                && selected_cards
+                    .iter()
+                    .all(|i| cards.iter().any(|c1| *c1 == hand[*i]))
+        }
+        PlayAction::ReplaceWildcard(_, _, card) => {
+            selected_cards.len() == 1 && hand[*selected_cards.iter().next().unwrap()] == *card
+        }
+        PlayAction::MoveCard(_, _, _) => true,
+        PlayAction::Noop => true,
     }
 }
 
@@ -251,13 +299,26 @@ fn update_game(
                 let curr_move = actions[idx].0.clone();
                 model.last_move =
                     format!("{} - Player {}", &curr_move, model.game.state().player_turn);
-                model.game.play(curr_move).expect("valid play action")
+                model.game.play(curr_move).expect("valid play action");
+                model.selected_cards.clear();
             }
             (GamePhase::Discard, Msg::Discard(idx)) => {
                 let curr_move = DiscardAction(model.game.current_player().hand[idx]);
                 model.last_move =
                     format!("{} - Player {}", &curr_move, model.game.state().player_turn);
-                model.game.discard(curr_move).expect("valid discard")
+                model.game.discard(curr_move).expect("valid discard");
+                model.selected_cards.clear();
+            }
+            (GamePhase::Play, Msg::Select(idx)) => {
+                if model.selected_cards.contains(&idx) {
+                    model.selected_cards.remove(&idx);
+                } else {
+                    model.selected_cards.insert(idx);
+                }
+            }
+            (GamePhase::Discard, Msg::Select(idx)) => {
+                model.selected_cards.clear();
+                model.selected_cards.insert(idx);
             }
             (p, m) => return Err(format!("Bad action ({:?}) in phase: {:?}", m, p)),
         }

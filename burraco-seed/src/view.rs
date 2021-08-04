@@ -11,6 +11,7 @@ use burraco::model::Cards;
 use burraco::model::Rank;
 use burraco::model::Run;
 use burraco::model::Suit;
+use seed::prelude::web_sys::Event;
 use seed::{prelude::*, *};
 
 use super::InitMsg;
@@ -104,6 +105,38 @@ fn card(card: &Card) -> Node<RootMsg> {
     ]
 }
 
+fn clickable_card<MsU: 'static>(
+    card: &Card,
+    handler: impl FnOnce(Event) -> MsU + 'static + Clone,
+) -> Node<RootMsg>
+where
+    MsU: 'static,
+{
+    /*
+       <div class="card rank-j clubs">
+       <span class="rank">J</span>
+       <span class="suit">♣</span>
+       </div>
+    */
+    let rank_upper = if card.1 == Rank::Joker {
+        "-".to_string()
+    } else {
+        format!("{}", card.1)
+    };
+    let rank_lower = rank_upper.to_lowercase();
+    let (suit_text, suit_class) = card_css_suit_class(card);
+    div![
+        C![
+            "card",
+            IF!(card.1 != Rank::Joker => format!("rank-{}", rank_lower)),
+            suit_class,
+        ],
+        span![C!["rank"], rank_upper],
+        span![C!["suit"], suit_text],
+        ev(Ev::Click, handler)
+    ]
+}
+
 fn deck(cards: &Cards) -> Node<RootMsg> {
     let range = 0..(cards.len().min(32)); // some css lib limitation
                                           /*
@@ -150,15 +183,25 @@ fn hidden_hand(cards: &Cards) -> Node<RootMsg> {
     ]
 }
 
-fn hand(cards: &Cards) -> Node<RootMsg> {
+fn hand(cards: &Cards, selected_cards: &HashSet<usize>) -> Node<RootMsg> {
     /*
     <ul class="hand">
         <li>
             <div class="card ...">...</div>
         </li>
     </ul> */
-    let card_nodes: Vec<_> = cards.iter().map(|c| li![card(c)]).collect();
-    ul![C!["hand"], card_nodes]
+    let card_nodes: Vec<_> = cards.iter().enumerate().map(
+        |(i, c)| {
+            li![
+                IF!( selected_cards.contains(&i) => strong!(clickable_card(c, move |_| RootMsg::Game(Select(i))))),
+                IF!( !selected_cards.contains(&i) => clickable_card(c, move |_| RootMsg::Game(Select(i)))),
+            ]
+        }
+    ).collect();
+    div![
+        ul![C!["hand"], card_nodes],
+        // format!("selected: {:?}", selected_cards)
+    ]
 }
 
 fn open_cards(cards: &Cards) -> Node<RootMsg> {
@@ -266,14 +309,17 @@ pub fn view_game(maybe_model: &Option<GameModel>) -> Node<RootMsg> {
                     style! {
                         "flex" => "1"
                     },
-                    IF!(!model.is_manual_turn() => button!["Advance other players", ev(Ev::Click, |_| RootMsg::Game(Advance)),]),
-                    IF!(model.is_manual_turn() && model.game.phase() == GamePhase::Draw => div!["Draw action choices", draw_action_buttons(&model.draw_choices)]),
-                    IF!(model.is_manual_turn() && model.game.phase() == GamePhase::Play => div!["Play action choices", play_action_buttons(&model.play_choices)]),
-                    IF!(model.is_manual_turn() && model.game.phase() == GamePhase::Discard => div!["Discard action choices", discard_action_buttons(&model.discard_choices)]),
                     div![
                         "Your hand (Player 0, Team 0)",
-                        hand(&model.game.state().teams[0].players[0].hand)
+                        hand(
+                            &model.game.state().teams[0].players[0].hand,
+                            &model.selected_cards
+                        )
                     ],
+                    IF!(!model.is_manual_turn() => button!["Advance other players", ev(Ev::Click, |_| RootMsg::Game(Advance)),]),
+                    IF!(model.is_manual_turn() && model.game.phase() == GamePhase::Draw => div!["Draw action choices", draw_action_buttons(&model.draw_choices)]),
+                    IF!(model.is_manual_turn() && model.game.phase() == GamePhase::Play => div!["Play action choices (select cards for more)", play_action_buttons(&model.play_choices)]),
+                    IF!(model.is_manual_turn() && model.game.phase() == GamePhase::Discard => div!["Discard action choices", discard_action_buttons(&model.discard_choices)]),
                 ],
             ],
         ]
