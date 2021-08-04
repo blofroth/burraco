@@ -62,7 +62,7 @@ pub struct GameModel {
     agents: Vec<Box<dyn BurracoAgent>>,
     last_move: String,
     draw_choices: Vec<String>,
-    play_choices: Vec<String>,
+    play_choices: Vec<(usize, String)>,
     discard_choices: Vec<String>,
     curr_player_moves_allowed: usize,
     selected_cards: HashSet<usize>,
@@ -92,14 +92,15 @@ impl GameModel {
 
                     let mut action_strs: Vec<_> = actions
                         .into_iter()
-                        .filter(|(a, _)| {
+                        .enumerate()
+                        .filter(|(_i, (a, _))| {
                             filter_play_action(
                                 a,
                                 &self.selected_cards,
                                 &self.game.current_player().hand,
                             )
                         })
-                        .map(|(a, _d_score)| format!("{}", a))
+                        .map(|(i, (a, _d_score))| (i, format!("{}", a)))
                         .collect();
                     self.play_choices.append(&mut action_strs);
 

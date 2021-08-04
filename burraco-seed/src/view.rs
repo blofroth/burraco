@@ -36,18 +36,14 @@ fn draw_action_buttons(actions: &[String]) -> Node<RootMsg> {
     ul![buttons]
 }
 
-fn play_action_buttons(actions: &[String]) -> Node<RootMsg> {
-    let buttons: Vec<_> = actions
-        .iter()
-        .enumerate()
-        .map(|(action_i, s)| {
-            li![button![
-                s,
-                ev(Ev::Click, move |_| RootMsg::Game(Play(action_i))),
-            ]]
-        })
-        .collect();
-    ul![buttons]
+fn play_action_buttons(actions: &[(usize, String)]) -> Node<RootMsg> {
+    let actions = actions.to_owned();
+    ul![actions.into_iter().map(|(action_i, s)| {
+        li![button![
+            s,
+            ev(Ev::Click, move |_| RootMsg::Game(Play(action_i))),
+        ]]
+    })]
 }
 
 fn discard_action_buttons(actions: &[String]) -> Node<RootMsg> {
