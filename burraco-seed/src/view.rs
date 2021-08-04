@@ -54,12 +54,7 @@ fn discard_action_buttons(actions: &[String]) -> Node<RootMsg> {
     let buttons: Vec<_> = actions
         .iter()
         .enumerate()
-        .map(|(action_i, s)| {
-            li![button![
-                s,
-                ev(Ev::Click, move |_| RootMsg::Game(Discard(action_i))),
-            ]]
-        })
+        .map(|(_action_i, s)| li![button![s, ev(Ev::Click, move |_| RootMsg::Game(Discard)),]])
         .collect();
     ul![buttons]
 }

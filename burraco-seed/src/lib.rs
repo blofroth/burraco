@@ -176,7 +176,7 @@ pub enum InitMsg {
 pub enum Msg {
     Draw(usize),
     Play(usize),
-    Discard(usize),
+    Discard, // discard selected
     Select(usize),
     Advance,
 }
@@ -302,8 +302,10 @@ fn update_game(
                 model.game.play(curr_move).expect("valid play action");
                 model.selected_cards.clear();
             }
-            (GamePhase::Discard, Msg::Discard(idx)) => {
-                let curr_move = DiscardAction(model.game.current_player().hand[idx]);
+            (GamePhase::Discard, Msg::Discard) => {
+                let curr_move = DiscardAction(
+                    model.game.current_player().hand[*model.selected_cards.iter().next().unwrap()],
+                );
                 model.last_move =
                     format!("{} - Player {}", &curr_move, model.game.state().player_turn);
                 model.game.discard(curr_move).expect("valid discard");
