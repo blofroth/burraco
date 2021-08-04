@@ -8,6 +8,7 @@ use burraco::actions::DiscardAction;
 use burraco::actions::DrawAction;
 use burraco::actions::GamePhase;
 use burraco::actions::PlayAction;
+use burraco::agent::*;
 use burraco::model::BurracoState;
 use burraco::model::Card;
 use burraco::model::Cards;
@@ -15,7 +16,6 @@ use burraco::model::Rank;
 use burraco::model::Run;
 use burraco::model::Suit;
 use seed::{prelude::*, *};
-use burraco::agent::*;
 
 // ------ ------
 //     Init
@@ -161,7 +161,7 @@ fn update(msg: Msg, model: &mut Model, _: &mut impl Orders<Msg>) {
             }
             (p, m) => model
                 .error_msg
-                .push_str(&mut format!("Bad action ({:?}) in phase: {:?}", m, p)),
+                .push_str(&format!("Bad action ({:?}) in phase: {:?}", m, p)),
         }
     } else if let Msg::Advance = msg {
         match model.game.phase() {
@@ -174,25 +174,21 @@ fn update(msg: Msg, model: &mut Model, _: &mut impl Orders<Msg>) {
                 model.curr_player_moves_allowed = model.game.current_team().played_runs.len();
             }
             GamePhase::Play => {
-                let curr_move = model.agents[model.game.state().player_turn]
-                    .select_play_action(
-                        PlayAction::enumerate(
-                            &model.game.current_team().played_runs,
-                            &model.game.current_player().hand,
-                            7,
-                        ),
-                        model.game.state(),
-                    );
+                let curr_move = model.agents[model.game.state().player_turn].select_play_action(
+                    PlayAction::enumerate(
+                        &model.game.current_team().played_runs,
+                        &model.game.current_player().hand,
+                        7,
+                    ),
+                    model.game.state(),
+                );
                 model.last_move =
                     format!("{} - Player {}", &curr_move, model.game.state().player_turn);
                 model.game.play(curr_move).expect("valid play action")
             }
             GamePhase::Discard => {
                 let curr_move = model.agents[model.game.state().player_turn]
-                    .select_discard_action(
-                        &model.game.current_player().hand,
-                        model.game.state(),
-                    );
+                    .select_discard_action(&model.game.current_player().hand, model.game.state());
                 model.last_move =
                     format!("{} - Player {}", &curr_move, model.game.state().player_turn);
                 model.game.discard(curr_move).expect("valid discard");
@@ -214,7 +210,7 @@ fn update(msg: Msg, model: &mut Model, _: &mut impl Orders<Msg>) {
 //     View
 // ------ ------
 
-fn draw_action_buttons(actions: &Vec<String>) -> Node<Msg> {
+fn draw_action_buttons(actions: &[String]) -> Node<Msg> {
     let buttons: Vec<_> = actions
         .iter()
         .enumerate()
@@ -223,7 +219,7 @@ fn draw_action_buttons(actions: &Vec<String>) -> Node<Msg> {
     ul![buttons]
 }
 
-fn play_action_buttons(actions: &Vec<String>) -> Node<Msg> {
+fn play_action_buttons(actions: &[String]) -> Node<Msg> {
     let buttons: Vec<_> = actions
         .iter()
         .enumerate()
@@ -232,7 +228,7 @@ fn play_action_buttons(actions: &Vec<String>) -> Node<Msg> {
     ul![buttons]
 }
 
-fn discard_action_buttons(actions: &Vec<String>) -> Node<Msg> {
+fn discard_action_buttons(actions: &[String]) -> Node<Msg> {
     let buttons: Vec<_> = actions
         .iter()
         .enumerate()
@@ -350,7 +346,7 @@ fn open_cards(cards: &Cards) -> Node<Msg> {
     ul![C!["table"], card_nodes]
 }
 
-fn runs(runs: &Vec<Run>) -> Node<Msg> {
+fn runs(runs: &[Run]) -> Node<Msg> {
     /*
     <ul class="table">
         <li>

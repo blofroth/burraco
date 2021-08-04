@@ -338,7 +338,7 @@ impl Run {
         }
         let first_known_suit = cards
             .iter().find(|c| c.1 != Joker && c.1 != Two)
-            .ok_or("Need at least some non wild cards for sequence run".to_string())?
+            .ok_or_else(|| "Need at least some non wild cards for sequence run".to_string())?
             .0;
         let num_same_two = cards
             .iter()
@@ -400,11 +400,9 @@ impl Run {
                 } else {
                     wildcard_replaces = curr_wildcard_replacement;
                 }
-                let valid_wildcard_sequence = match (prev_card, card.1, next_card) {
-                    // cannot extend ace sequence
-                    (Some(Card(_, Ace)), _, None) => false,
-                    _ => true,
-                };
+                let valid_wildcard_sequence = 
+                    !matches!((prev_card, card.1, next_card), (Some(Card(_, Ace)), _, None));
+
                 if !valid_wildcard_sequence {
                     return Err("Cannot extend from Ace with wildcard".into());
                 }

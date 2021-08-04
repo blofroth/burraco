@@ -136,7 +136,7 @@ impl fmt::Display for PlayAction {
     }
 }
 
-pub fn print_play_actions(actions: &Vec<(PlayAction, i32)>, runs: &Vec<Run>) {
+pub fn print_play_actions(actions: &[(PlayAction, i32)], runs: &[Run]) {
     println!("Available actions:");
     for (i, (action, _d_score)) in actions.iter().enumerate() {
         let mut extra = String::new();

@@ -102,7 +102,7 @@ impl BurracoGame {
             let index = hand
                 .iter()
                 .position(|c| c == card)
-                .ok_or("Cannot remove card that does not exist".to_string())?;
+                .ok_or_else(|| "Cannot remove card that does not exist".to_string())?;
             hand.remove(index);
         }
         Ok(())
@@ -145,7 +145,7 @@ impl BurracoGame {
                 let run = &self.state.teams[team]
                     .played_runs
                     .get(run_idx)
-                    .ok_or("Non-existing run index".to_string())?;
+                    .ok_or_else(|| "Non-existing run index".to_string())?;
                 let new_run = run.append(&cards, Append::Top)?;
                 BurracoGame::remove_from_hand(&mut self.state.teams[team].players[player], &cards)?;
                 self.state.teams[team].played_runs[run_idx] = new_run;
@@ -161,7 +161,7 @@ impl BurracoGame {
                 let run = &self.state.teams[team]
                     .played_runs
                     .get(run_idx)
-                    .ok_or("Non-existing run index".to_string())?;
+                    .ok_or_else(|| "Non-existing run index".to_string())?;
                 let new_run = run.append(&cards, Append::Bottom)?;
                 BurracoGame::remove_from_hand(&mut self.state.teams[team].players[player], &cards)?;
                 self.state.teams[team].played_runs[run_idx] = new_run;
@@ -178,7 +178,7 @@ impl BurracoGame {
                 let run = &self.state.teams[team]
                     .played_runs
                     .get(run_idx)
-                    .ok_or("Non-existing run index".to_string())?;
+                    .ok_or_else(|| "Non-existing run index".to_string())?;
                 let new_run = run.replace_wildcard(at, &card)?;
                 BurracoGame::remove_from_hand(&mut self.state.teams[team].players[player], &cards)?;
                 self.state.teams[team].played_runs[run_idx] = new_run;
@@ -190,7 +190,7 @@ impl BurracoGame {
                 let run = &self.state.teams[team]
                     .played_runs
                     .get(run_idx)
-                    .ok_or("Non-existing run index".to_string())?;
+                    .ok_or_else(|| "Non-existing run index".to_string())?;
                 let new_run = run.move_card(from, to)?;
                 self.state.teams[team].played_runs[run_idx] = new_run;
             }
@@ -203,17 +203,11 @@ impl BurracoGame {
         if self.current_player().hand.is_empty() {
             // TODO prevent action where game ends without team burraco
             if !self.current_team().has_reached_pot {
-                if !self.state.pot1.is_empty() {
+                if let Some(non_empty_pot) = [&mut self.state.pot1, &mut self.state.pot2].iter_mut().find(|p| !p.is_empty()) {
                     // "discard and get pot", can only play next turn
                     self.state.teams[team].players[player]
                         .hand
-                        .append(&mut self.state.pot1.drain_back(11));
-                    self.state.teams[team].has_reached_pot = true;
-                } else if !self.state.pot2.is_empty() {
-                    // "discard and get pot", can only play next turn
-                    self.state.teams[team].players[player]
-                        .hand
-                        .append(&mut self.state.pot1.drain_back(11));
+                        .append(&mut non_empty_pot.drain_back(11));
                     self.state.teams[team].has_reached_pot = true;
                 } else {
                     // both pots taken, game ends (should really happen in other top else clause?)
@@ -347,7 +341,7 @@ pub enum PlayAction {
 
 impl PlayAction {
     pub fn enumerate(
-        team_runs: &Vec<Run>,
+        team_runs: &[Run],
         player_hand: &Cards,
         moves_allowed: usize,
     ) -> Vec<(PlayAction, i32)> {
@@ -508,7 +502,6 @@ impl PlayAction {
 pub struct DiscardAction(pub Card);
 
 #[cfg(test)]
-
 mod tests {
     use crate::agent::BurracoAgent;
     use super::*;
