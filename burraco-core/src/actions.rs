@@ -514,7 +514,7 @@ mod tests {
     #[test]
     fn test_start_run_action() -> Result<(), String> {
         let hand = Cards::of("JK, ♣2, ♣5, ♣7, ♣9, ♣K, ♦6, ♦8, ♦9, ♥10, ♠6, ♠K")?;
-        let actions = PlayAction::enumerate(&vec![], &hand, 0);
+        let actions = PlayAction::enumerate(&[], &hand, 0);
         for (action, _d_score) in &actions {
             println!("{}", action);
         }
@@ -561,7 +561,7 @@ mod tests {
     fn test_move_action() -> Result<(), String> {
         let hand = Cards::of("♣5")?;
         let actions = PlayAction::enumerate(
-            &vec![Run::build_sequence_run(Cards::of("JK,♥3,♥4")?)?],
+            &[Run::build_sequence_run(Cards::of("JK,♥3,♥4")?)?],
             &hand,
             1,
         );

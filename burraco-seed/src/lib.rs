@@ -10,45 +10,36 @@ use burraco::actions::GamePhase;
 use burraco::actions::PlayAction;
 use burraco::agent::*;
 use burraco::model::BurracoState;
-use burraco::model::Card;
-use burraco::model::Cards;
-use burraco::model::Rank;
-use burraco::model::Run;
-use burraco::model::Suit;
-use seed::{prelude::*, *};
+use seed::prelude::*;
+
+mod view;
 
 // ------ ------
 //     Init
 // ------ ------
 
-// set to out of range for no manual players
-//const MANUAL_PLAYER: usize = 0;
-const MANUAL_PLAYER: usize = 999;
+/// if manual player is used, it has this player number
+const MANUAL_PLAYER: usize = 0;
 
 // `init` describes what should happen when your app started.
-fn init(_: Url, _orders: &mut impl Orders<Msg>) -> Model {
-    let state = BurracoState::init_with(2, 2);
+fn init(_: Url, _orders: &mut impl Orders<RootMsg>) -> Model {
+    // log!(format!("game model is some: {}", model.game_model.is_some()));
 
-    let game = BurracoGame::from(state);
-
-    let mut model = Model {
-        game,
-        agents: vec![
-            Box::new(SmartAgent {}), // we will detect this special case as manual player
-            Box::new(SmartAgent {}),
-            Box::new(SmartAgent {}),
-            Box::new(SmartAgent {}),
-        ],
-        last_move: "".into(),
-        draw_choices: vec![],
-        play_choices: vec![],
-        discard_choices: vec![],
+    Model {
+        game_model: None,
+        init_options: InitOptions {
+            num_teams: 2,
+            num_team_players: 2,
+            enable_manual_player: true,
+            agents: vec![
+                AgentType::Smart,
+                AgentType::Smart,
+                AgentType::Smart,
+                AgentType::Smart,
+            ],
+        },
         error_msg: "".into(),
-        curr_player_moves_allowed: 0,
-    };
-    model.update_choices();
-
-    model
+    }
 }
 
 // ------ ------
@@ -56,20 +47,26 @@ fn init(_: Url, _orders: &mut impl Orders<Msg>) -> Model {
 // ------ ------
 
 // `Model` describes our app state.
-struct Model {
+pub struct Model {
+    game_model: Option<GameModel>,
+    init_options: InitOptions,
+    error_msg: String,
+}
+
+pub struct GameModel {
     game: BurracoGame,
+    enable_manual_player: bool,
     agents: Vec<Box<dyn BurracoAgent>>,
     last_move: String,
     draw_choices: Vec<String>,
     play_choices: Vec<String>,
     discard_choices: Vec<String>,
     curr_player_moves_allowed: usize,
-    error_msg: String,
 }
 
-impl Model {
+impl GameModel {
     fn update_choices(&mut self) {
-        if self.game.state().player_turn == MANUAL_PLAYER {
+        if self.is_manual_turn() {
             match self.game.phase() {
                 GamePhase::Draw => {
                     self.draw_choices.append(&mut vec![
@@ -116,6 +113,10 @@ impl Model {
             self.discard_choices.clear();
         }
     }
+
+    pub fn is_manual_turn(&self) -> bool {
+        self.enable_manual_player && self.game.state().player_turn == MANUAL_PLAYER
+    }
 }
 
 // ------ ------
@@ -125,16 +126,115 @@ impl Model {
 // (Remove the line below once any of your `Msg` variants doesn't implement `Copy`.)
 #[derive(Clone, Debug)]
 // `Msg` describes the different events you can modify state with.
-enum Msg {
+pub enum RootMsg {
+    Game(Msg),
+    Init(InitMsg),
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum AgentType {
+    Dumb,
+    Smart,
+    Random,
+    Max,
+    Manual,
+}
+
+#[derive(Clone, Debug)]
+pub struct InitOptions {
+    pub num_teams: usize,
+    pub num_team_players: usize,
+    pub enable_manual_player: bool,
+    pub agents: Vec<AgentType>,
+}
+
+#[derive(Clone, Debug)]
+pub enum InitMsg {
+    Create,
+    SetNumTeams(usize),
+    SetPlayers(usize),
+    SetAgent(usize, AgentType),
+    FlipManual,
+}
+
+#[derive(Clone, Debug)]
+pub enum Msg {
     Draw(usize),
     Play(usize),
     Discard(usize),
     Advance,
 }
 
+fn update(msg: RootMsg, model: &mut Model, orders: &mut impl Orders<RootMsg>) {
+    if let Some(game_model) = &mut model.game_model {
+        if let RootMsg::Game(game_message) = msg {
+            let res = update_game(game_message, game_model, orders);
+            if let Err(s) = res {
+                model.error_msg.push_str(&s);
+            }
+        }
+    } else {
+        match msg {
+            RootMsg::Init(InitMsg::Create) => {
+                let state = BurracoState::init_with(
+                    model.init_options.num_teams,
+                    model.init_options.num_team_players,
+                );
+
+                let game = BurracoGame::from(state);
+
+                fn create_agent(agent_type: AgentType) -> Box<dyn BurracoAgent> {
+                    let agent: Box<dyn BurracoAgent> = match agent_type {
+                        AgentType::Dumb => Box::new(DumbAgent {}),
+                        AgentType::Smart => Box::new(SmartAgent {}),
+                        AgentType::Max => Box::new(MaxAgent {}),
+                        AgentType::Random => Box::new(random_agent_thread_rng()),
+                        _ => unimplemented!(),
+                    };
+                    agent
+                }
+
+                let mut game_model = GameModel {
+                    game,
+                    enable_manual_player: model.init_options.enable_manual_player,
+                    agents: model
+                        .init_options
+                        .agents
+                        .iter()
+                        .map(|a| create_agent(*a))
+                        .collect(),
+                    last_move: "".into(),
+                    draw_choices: vec![],
+                    play_choices: vec![],
+                    discard_choices: vec![],
+                    curr_player_moves_allowed: 0,
+                };
+
+                game_model.update_choices();
+                model.game_model.replace(game_model);
+            }
+            RootMsg::Init(InitMsg::SetNumTeams(num)) => model.init_options.num_teams = num,
+            RootMsg::Init(InitMsg::SetPlayers(num)) => model.init_options.num_team_players = num,
+            RootMsg::Init(InitMsg::FlipManual) => {
+                model.init_options.enable_manual_player = !model.init_options.enable_manual_player
+            }
+            RootMsg::Init(InitMsg::SetAgent(idx, agent_type)) => {
+                model.init_options.agents[idx] = agent_type
+            }
+            _ => model
+                .error_msg
+                .push_str("Bad message when no game initated"),
+        }
+    }
+}
+
 // `update` describes how to handle each `Msg`.
-fn update(msg: Msg, model: &mut Model, _: &mut impl Orders<Msg>) {
-    if model.game.state().player_turn == MANUAL_PLAYER {
+fn update_game(
+    msg: Msg,
+    model: &mut GameModel,
+    _: &mut impl Orders<RootMsg>,
+) -> Result<(), String> {
+    if model.is_manual_turn() {
         match (model.game.phase(), msg) {
             (GamePhase::Draw, Msg::Draw(idx)) => {
                 let curr_move = [DrawAction::DrawOpen, DrawAction::DrawPile][idx];
@@ -159,9 +259,7 @@ fn update(msg: Msg, model: &mut Model, _: &mut impl Orders<Msg>) {
                     format!("{} - Player {}", &curr_move, model.game.state().player_turn);
                 model.game.discard(curr_move).expect("valid discard")
             }
-            (p, m) => model
-                .error_msg
-                .push_str(&format!("Bad action ({:?}) in phase: {:?}", m, p)),
+            (p, m) => return Err(format!("Bad action ({:?}) in phase: {:?}", m, p)),
         }
     } else if let Msg::Advance = msg {
         match model.game.phase() {
@@ -204,255 +302,7 @@ fn update(msg: Msg, model: &mut Model, _: &mut impl Orders<Msg>) {
         }
     }
     model.update_choices();
-}
-
-// ------ ------
-//     View
-// ------ ------
-
-fn draw_action_buttons(actions: &[String]) -> Node<Msg> {
-    let buttons: Vec<_> = actions
-        .iter()
-        .enumerate()
-        .map(|(action_i, s)| li![button![s, ev(Ev::Click, move |_| Msg::Draw(action_i)),]])
-        .collect();
-    ul![buttons]
-}
-
-fn play_action_buttons(actions: &[String]) -> Node<Msg> {
-    let buttons: Vec<_> = actions
-        .iter()
-        .enumerate()
-        .map(|(action_i, s)| li![button![s, ev(Ev::Click, move |_| Msg::Play(action_i)),]])
-        .collect();
-    ul![buttons]
-}
-
-fn discard_action_buttons(actions: &[String]) -> Node<Msg> {
-    let buttons: Vec<_> = actions
-        .iter()
-        .enumerate()
-        .map(|(action_i, s)| li![button![s, ev(Ev::Click, move |_| Msg::Discard(action_i)),]])
-        .collect();
-    ul![buttons]
-}
-
-fn card_css_suit_class(card: &Card) -> (String, String) {
-    let text = if Suit::Jokers == card.0 {
-        "Joker".into()
-    } else {
-        format!("{}", card.0)
-    };
-    let class = match card.0 {
-        Suit::Clubs => "clubs",
-        Suit::Diamonds => "diams",
-        Suit::Hearts => "hearts",
-        Suit::Spades => "spades",
-        Suit::Jokers => "joker",
-    };
-    (text, class.into())
-}
-
-fn card(card: &Card) -> Node<Msg> {
-    /*
-       <div class="card rank-j clubs">
-       <span class="rank">J</span>
-       <span class="suit">♣</span>
-       </div>
-    */
-    let rank_upper = if card.1 == Rank::Joker {
-        "-".to_string()
-    } else {
-        format!("{}", card.1)
-    };
-    let rank_lower = rank_upper.to_lowercase();
-    let (suit_text, suit_class) = card_css_suit_class(card);
-    div![
-        C![
-            "card",
-            IF!(card.1 != Rank::Joker => format!("rank-{}", rank_lower)),
-            suit_class
-        ],
-        span![C!["rank"], rank_upper],
-        span![C!["suit"], suit_text]
-    ]
-}
-
-fn deck(cards: &Cards) -> Node<Msg> {
-    let range = 0..(cards.len().min(32)); // some css lib limitation
-                                          /*
-                                          <ul class="deck">
-                                              <li>
-                                                  <div class="card back">*</div>
-                                              </li>
-                                          </ul> */
-    ul![
-        C!["deck"],
-        range
-            .into_iter()
-            .map(|_i| { li![div![C!["card", "back"], "*"]] })
-    ]
-}
-
-fn view_hidden_hands(state: &BurracoState) -> Vec<Node<Msg>> {
-    let mut hands = Vec::new();
-    for i in 1..state.player_team_idxs.len() {
-        let curr_player = state.player_turn;
-        let curr_i = (curr_player + i) % state.player_team_idxs.len();
-        let (team, player) = state.player_team_idxs[curr_i];
-
-        let playing = IF!(curr_i == state.player_turn => b!("[Playing]"));
-        hands.push(p![format!("Player {} (Team {})", i, team), playing]);
-        hands.push(hidden_hand(&state.teams[team].players[player].hand));
-    }
-    hands
-}
-
-fn hidden_hand(cards: &Cards) -> Node<Msg> {
-    let range = 0..(cards.len().min(32)); // some css lib limitation
-                                          /*
-                                          <ul class="deck">
-                                              <li>
-                                                  <div class="card back">*</div>
-                                              </li>
-                                          </ul> */
-    ul![
-        C!["hand"],
-        range
-            .into_iter()
-            .map(|_i| { li![div![C!["card", "back"], "*"]] })
-    ]
-}
-
-fn hand(cards: &Cards) -> Node<Msg> {
-    /*
-    <ul class="hand">
-        <li>
-            <div class="card ...">...</div>
-        </li>
-    </ul> */
-    let card_nodes: Vec<_> = cards.iter().map(|c| li![card(c)]).collect();
-    ul![C!["hand"], card_nodes]
-}
-
-fn open_cards(cards: &Cards) -> Node<Msg> {
-    /*
-    <ul class="table">
-        <li>
-            <div class="card ...">...</div>
-        </li>
-    </ul> */
-    let card_nodes: Vec<_> = cards.iter().map(|c| li![card(c)]).collect();
-    ul![C!["table"], card_nodes]
-}
-
-fn runs(runs: &[Run]) -> Node<Msg> {
-    /*
-    <ul class="table">
-        <li>
-            <div class="card ...">...</div>
-        </li>
-    </ul> */
-    let run_nodes: Vec<_> = runs
-        .iter()
-        .map(|r| {
-            div![
-                open_cards(r.cards()),
-                format!("({:?}, {} p)", r.run_type(), r.score())
-            ]
-        })
-        .collect();
-    div![run_nodes]
-}
-
-// `view` describes what to display.
-fn view(model: &Model) -> Node<Msg> {
-    let other_team_runs: Vec<_> = model.game.state().teams[1..]
-        .iter()
-        .map(|t| runs(&t.played_runs))
-        .collect();
-    div![
-        h1!("Burraco"),
-        //pre![format!("{}", model.game)],
-        //pre![format!("{}", model.last_view)],
-        div!["Last move: ", &model.last_move],
-        div!["Error messages", pre![model.error_msg.to_string()]],
-        div![
-            C![
-                "playingCards",
-                "fourColours",
-                "rotateHand",
-                "simpleCards",
-                "inText"
-            ],
-            style! {
-                St::Display => "flex",
-                St::Padding => px(10)
-            },
-            div![
-                style! {
-                    "flex" => "1"
-                },
-                "Other team runs",
-                other_team_runs
-            ],
-            div![
-                style! {
-                    "flex" => "1"
-                },
-                "Your team runs",
-                runs(&model.game.state().teams[0].played_runs)
-            ],
-        ],
-        div![
-            C!["playingCards", "fourColours", "rotateHand", "simpleCards"],
-            style! {
-                St::Display => "flex",
-                St::Padding => px(10)
-            },
-            div![
-                style! {
-                    "flex" => "1"
-                },
-                "Piles",
-                open_cards(&model.game.state().open_pile),
-                deck(&model.game.state().draw_pile)
-            ],
-            div![
-                style! {
-                    "flex" => "1"
-                },
-                "Pots",
-                deck(&model.game.state().pot1),
-                deck(&model.game.state().pot2)
-            ],
-            div![
-                style! {
-                    "flex" => "1"
-                },
-                "Other hands",
-                view_hidden_hands(model.game.state())
-            ],
-            div![
-                style! {
-                    "flex" => "1"
-                },
-                IF!(model.game.state().player_turn != MANUAL_PLAYER => button!["Advance other players", ev(Ev::Click, |_| Msg::Advance),]),
-                IF!(model.game.state().player_turn == MANUAL_PLAYER && model.game.phase() == GamePhase::Draw => div!["Draw action choices", draw_action_buttons(&model.draw_choices)]),
-                IF!(model.game.state().player_turn == MANUAL_PLAYER && model.game.phase() == GamePhase::Play => div!["Play action choices", play_action_buttons(&model.play_choices)]),
-                IF!(model.game.state().player_turn == MANUAL_PLAYER && model.game.phase() == GamePhase::Discard => div!["Discard action choices", discard_action_buttons(&model.discard_choices)]),
-                div![
-                    "Your hand (Player 0, Team 0)",
-                    hand(&model.game.state().teams[0].players[0].hand)
-                ],
-            ],
-        ],
-        view_credits(model)
-    ]
-}
-
-fn view_credits(_model: &Model) -> Vec<Node<Msg>> {
-    raw![include_str!("../credits.html")]
+    Ok(())
 }
 
 // ------ ------
@@ -463,5 +313,5 @@ fn view_credits(_model: &Model) -> Vec<Node<Msg>> {
 #[wasm_bindgen(start)]
 pub fn start() {
     // Mount the `app` to the element with the `id` "app".
-    App::start("app", init, update, view);
+    App::start("app", init, update, view::view);
 }

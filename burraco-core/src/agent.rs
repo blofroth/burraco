@@ -147,10 +147,8 @@ pub struct RandomAgent<R: Rng + ?Sized> {
     pub rng: R,
 }
 
-impl<R: Rng + ?Sized> RandomAgent<R> {
-    pub fn new_thread_rng() -> RandomAgent<ThreadRng> {
-        RandomAgent { rng: thread_rng() }
-    }
+pub fn random_agent_thread_rng() -> RandomAgent<ThreadRng> {
+    RandomAgent { rng: thread_rng() }
 }
 
 impl<R: Rng + ?Sized> BurracoAgent for RandomAgent<R> {
