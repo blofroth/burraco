@@ -1,17 +1,17 @@
-use crate::model::Suit;
-use crate::model::Suit::*;
-use crate::model::Card;
-use crate::model::Cards;
-use crate::model::Run;
-use crate::model::RunType::*;
-use crate::model::BurracoState;
-use crate::model::Rank;
-use crate::model::Rank::*;
 use crate::actions::BurracoGame;
+use crate::actions::DiscardAction;
 use crate::actions::DrawAction;
 use crate::actions::PlayAction;
 use crate::actions::PlayAction::*;
-use crate::actions::DiscardAction;
+use crate::model::BurracoState;
+use crate::model::Card;
+use crate::model::Cards;
+use crate::model::Rank;
+use crate::model::Rank::*;
+use crate::model::Run;
+use crate::model::RunType::*;
+use crate::model::Suit;
+use crate::model::Suit::*;
 
 use std::fmt;
 
@@ -19,10 +19,10 @@ impl fmt::Display for Suit {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = match &self {
             Clubs => "♣",
-            Diamonds => "♦", 
+            Diamonds => "♦",
             Hearts => "♥",
             Spades => "♠",
-            Jokers => ""
+            Jokers => "",
         };
         write!(f, "{}", s)
     }
@@ -31,13 +31,13 @@ impl fmt::Display for Suit {
 impl fmt::Display for Rank {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self {
-            Two   => write!(f, "2"),
+            Two => write!(f, "2"),
             Numerical(num) => write!(f, "{}", num),
-            Jack  => write!(f, "J"),
+            Jack => write!(f, "J"),
             Queen => write!(f, "Q"),
-            King  => write!(f, "K"),
-            Ace   => write!(f, "A"),
-            Joker => write!(f, "JK")
+            King => write!(f, "K"),
+            Ace => write!(f, "A"),
+            Joker => write!(f, "JK"),
         }
     }
 }
@@ -61,8 +61,8 @@ impl fmt::Display for Cards {
 impl fmt::Display for Run {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.run_type() {
-            Sequence => write!(f, "Sequence: {} ({} p)", self.cards(), self.score()  ),
-            Group => write!(f, "Group: {} ({} p)", self.cards(), self.score()  ),
+            Sequence => write!(f, "Sequence: {} ({} p)", self.cards(), self.score()),
+            Group => write!(f, "Group: {} ({} p)", self.cards(), self.score()),
         }
     }
 }
@@ -73,19 +73,25 @@ impl fmt::Display for BurracoState {
         for t in 0..self.num_teams {
             write!(f, "  Team {}\n", t)?;
             for p in 0..self.num_team_players {
-                write!(f, "    Player {}-{}: {} cards \n", t, p, self.teams[t].players[p].hand.len())?;
+                write!(
+                    f,
+                    "    Player {}-{}: {} cards \n",
+                    t,
+                    p,
+                    self.teams[t].players[p].hand.len()
+                )?;
             }
             write!(f, "    Runs played\n")?;
             for run in &self.teams[t].played_runs {
                 write!(f, "    - {}\n", run)?;
             }
         }
-        write!(f, "  Draw pile: {} cards \n", self.draw_pile.len() )?;
-        write!(f, "  Open pile: {} \n", self.open_pile )?;
+        write!(f, "  Draw pile: {} cards \n", self.draw_pile.len())?;
+        write!(f, "  Open pile: {} \n", self.open_pile)?;
         write!(f, "\n")?;
-        write!(f, "  Pot 1: {} cards \n", self.pot1.len() )?;
-        write!(f, "  Pot 2: {} cards \n", self.pot2.len() )?;
-        write!(f, "Cards tot: {} \n", self.cards_total() )?;
+        write!(f, "  Pot 1: {} cards \n", self.pot1.len())?;
+        write!(f, "  Pot 2: {} cards \n", self.pot2.len())?;
+        write!(f, "Cards tot: {} \n", self.cards_total())?;
         let (team, player) = self.player_team_idxs[self.player_turn];
         write!(f, "Current round: {} \n", self.round)?;
         write!(f, "Current turn: team {} player {} \n", team, player)
@@ -95,9 +101,9 @@ impl fmt::Display for BurracoState {
 impl fmt::Display for BurracoGame {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.state())?;
-        write!(f, "Scoreboard: {:?} \n", &self.scoreboard() )?;
-        write!(f, "Current phase: {:?} \n", &self.phase() )?;
-        write!(f, "Current hand: {} \n", self.current_player().hand )?;
+        write!(f, "Scoreboard: {:?} \n", &self.scoreboard())?;
+        write!(f, "Current phase: {:?} \n", &self.phase())?;
+        write!(f, "Current hand: {} \n", self.current_player().hand)?;
         write!(f, "---")
     }
 }
@@ -117,29 +123,39 @@ impl fmt::Display for PlayAction {
             StartRun(run) => write!(f, "Start run - {}", run.cards()),
             AppendTop(run_idx, cards) => write!(f, "Append top, to {} - {}", run_idx, cards),
             AppendBottom(run_idx, cards) => write!(f, "Append bottom, to {} - {}", run_idx, cards),
-            ReplaceWildcard(run_idx, wilcard_idx, card) => write!(f, "Replace wildcard, for {}: with {} - position {}", run_idx, card, wilcard_idx),
-            MoveCard(run_idx, from, to) => write!(f, "Move card, with {} - from {} to {}", run_idx, from, to),
+            ReplaceWildcard(run_idx, wilcard_idx, card) => write!(
+                f,
+                "Replace wildcard, for {}: with {} - position {}",
+                run_idx, card, wilcard_idx
+            ),
+            MoveCard(run_idx, from, to) => {
+                write!(f, "Move card, with {} - from {} to {}", run_idx, from, to)
+            }
             Noop => write!(f, "Play nothing"),
         }
     }
 }
 
-
-pub fn print_play_actions(actions: &Vec<(PlayAction,i32)>, runs: &Vec<Run>) {
+pub fn print_play_actions(actions: &Vec<(PlayAction, i32)>, runs: &Vec<Run>) {
     println!("Available actions:");
     for (i, (action, _d_score)) in actions.iter().enumerate() {
         let mut extra = String::new();
         match &action {
-            PlayAction::AppendTop(run_idx, _) => extra.push_str(&format!(" - {}", runs[*run_idx].cards())),
-            PlayAction::AppendBottom(run_idx, _) => extra.push_str(&format!(" - {}", runs[*run_idx].cards())),
-            PlayAction::MoveCard(run_idx, _from, _to) => extra.push_str(&format!(" - {}", runs[*run_idx].cards())),
+            PlayAction::AppendTop(run_idx, _) => {
+                extra.push_str(&format!(" - {}", runs[*run_idx].cards()))
+            }
+            PlayAction::AppendBottom(run_idx, _) => {
+                extra.push_str(&format!(" - {}", runs[*run_idx].cards()))
+            }
+            PlayAction::MoveCard(run_idx, _from, _to) => {
+                extra.push_str(&format!(" - {}", runs[*run_idx].cards()))
+            }
             // TODO more?
             _ => {}
         };
-        println!("  {}: {}{}", i, action, extra );
+        println!("  {}: {}{}", i, action, extra);
     }
 }
-
 
 impl fmt::Display for DiscardAction {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

@@ -1,16 +1,15 @@
-
-use std::io::{Write, stdout};
+use std::io::{stdout, Write};
 
 use burraco::model::BurracoState;
 
 use burraco::actions::BurracoGame;
-use burraco::cli_display::print_play_actions;
 use burraco::agent::BurracoAgent;
+use burraco::cli_display::print_play_actions;
 use rand::thread_rng;
 
 fn main() -> Result<(), String> {
-    use burraco::actions::PlayAction;
     use burraco::actions::GamePhase::*;
+    use burraco::actions::PlayAction;
 
     let state = BurracoState::init_with(2, 2);
 
@@ -21,9 +20,9 @@ fn main() -> Result<(), String> {
 
     let orig_cards = game.state().cards_total();
 
+    use burraco::agent::DumbAgent;
     use burraco::agent::ManualCliAgent;
     use burraco::agent::MaxAgent;
-    use burraco::agent::DumbAgent;
     use burraco::agent::RandomAgent;
     use burraco::agent::SmartAgent;
     let mut agents: [Box<dyn BurracoAgent>; 4] = [
@@ -42,12 +41,14 @@ fn main() -> Result<(), String> {
     // let mut agent = RandomAgent{ rng: thread_rng() };
     // use agent::ManualCliAgent;
     // let mut agent = ManualCliAgent {};
-    
 
-    
     'round: loop {
         if game.state().cards_total() > orig_cards {
-            panic!("Cards are procreating! {} vs orig {}", game.state().cards_total(), orig_cards);
+            panic!(
+                "Cards are procreating! {} vs orig {}",
+                game.state().cards_total(),
+                orig_cards
+            );
         }
         let agent = &mut agents[game.state().player_turn];
         // poor mans randomization :)
@@ -62,20 +63,28 @@ fn main() -> Result<(), String> {
         }
         println!("---");
         println!("{}", game);
-        
+
         // probably enough even if new runs are created?
         let mut moves_allowed = game.current_team().played_runs.len();
 
         // play until noop
         'player_plays: loop {
             if game.state().cards_total() > orig_cards {
-                panic!("Cards are procreating! {} vs orig {}", game.state().cards_total(), orig_cards);
+                panic!(
+                    "Cards are procreating! {} vs orig {}",
+                    game.state().cards_total(),
+                    orig_cards
+                );
             }
 
-            let available_actions = PlayAction::enumerate(&game.current_team().played_runs, &game.current_player().hand, moves_allowed);
+            let available_actions = PlayAction::enumerate(
+                &game.current_team().played_runs,
+                &game.current_player().hand,
+                moves_allowed,
+            );
             print_play_actions(&available_actions, &game.current_team().played_runs);
             let selected_action = agent.select_play_action(available_actions, game.state());
-            if let PlayAction::MoveCard(_,_,_) = selected_action {
+            if let PlayAction::MoveCard(_, _, _) = selected_action {
                 moves_allowed -= 1;
             }
 
@@ -87,7 +96,10 @@ fn main() -> Result<(), String> {
                 let player_turn = game.state().player_turn;
                 let (team, player) = game.state().player_team_idxs[player_turn];
                 // TODO: potsetto
-                println!("PLAYER WITH EMPTY HAND: team {}, player {} (P{})",  team, player, player_turn);
+                println!(
+                    "PLAYER WITH EMPTY HAND: team {}, player {} (P{})",
+                    team, player, player_turn
+                );
                 break 'round;
             }
             println!("---");
@@ -103,8 +115,11 @@ fn main() -> Result<(), String> {
         game.discard(discard_action)?;
         if let Finished(_) = game.phase() {
             let player_turn = game.state().player_turn;
-                let (team, player) = game.state().player_team_idxs[player_turn];
-            println!("PLAYER WITH EMPTY HAND: team {}, player {} (P{})",  team, player, player_turn);
+            let (team, player) = game.state().player_team_idxs[player_turn];
+            println!(
+                "PLAYER WITH EMPTY HAND: team {}, player {} (P{})",
+                team, player, player_turn
+            );
             break 'round;
         }
         println!("---");
@@ -129,5 +144,5 @@ fn main() -> Result<(), String> {
         println!("undefined game abort");
     }
     stdout().flush().map_err(|e| e.to_string())?;
-    Ok( () )
+    Ok(())
 }
