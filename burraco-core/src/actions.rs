@@ -414,6 +414,9 @@ impl PlayAction {
         // move card actions
         if moves_allowed > 0 {
             for (i, run) in team_runs.iter().enumerate() {
+                if run.run_type() == RunType::Group {
+                    continue;
+                }
                 for from in 0..run.cards().len() {
                     let rank_move = run.cards()[from].1;
                     if rank_move != Joker && rank_move != Two && rank_move != Ace {
@@ -493,6 +496,27 @@ mod tests {
 
         Ok( () ) 
     }
+
+    
+    #[test]
+    fn test_move_action() -> Result<(),String> {
+
+        let hand = Cards::of("♣5")?;
+        let actions = PlayAction::enumerate(&vec![Run::build_sequence_run(Cards::of("JK,♥3,♥4")?)?], &hand, 1);
+        for (action, _d_score) in &actions {
+            println!("{}", action);
+        }
+
+        use std::collections::HashSet;
+        let set: HashSet<_> = actions.into_iter().map(|(a, _s)| a).collect();
+
+
+        assert_eq!(1, set.len());
+        assert!(&set.contains(&PlayAction::Noop));
+
+        Ok( () ) 
+    }
+
     #[test]
     fn test_advance_turn() -> Result<(),String> {
 

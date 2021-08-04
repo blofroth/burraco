@@ -1,21 +1,16 @@
 
 use std::io::{Write, stdout};
 
-use model::BurracoState;
+use burraco::model::BurracoState;
 
-use actions::BurracoGame;
-use cli_display::print_play_actions;
-use agent::BurracoAgent;
+use burraco::actions::BurracoGame;
+use burraco::cli_display::print_play_actions;
+use burraco::agent::BurracoAgent;
 use rand::thread_rng;
 
-mod model;
-mod actions;
-mod cli_display;
-mod agent;
-
 fn main() -> Result<(), String> {
-    use actions::PlayAction;
-    use actions::GamePhase::*;
+    use burraco::actions::PlayAction;
+    use burraco::actions::GamePhase::*;
 
     let state = BurracoState::init_with(2, 2);
 
@@ -26,17 +21,17 @@ fn main() -> Result<(), String> {
 
     let orig_cards = game.state().cards_total();
 
-    use agent::ManualCliAgent;
-    use agent::MaxAgent;
-    use agent::DumbAgent;
-    use agent::RandomAgent;
-    use agent::SmartAgent;
+    use burraco::agent::ManualCliAgent;
+    use burraco::agent::MaxAgent;
+    use burraco::agent::DumbAgent;
+    use burraco::agent::RandomAgent;
+    use burraco::agent::SmartAgent;
     let mut agents: [Box<dyn BurracoAgent>; 4] = [
-        Box::new(SmartAgent {}),
+        Box::new(ManualCliAgent {}),
         // Box::new(MaxAgent {}),
         Box::new(MaxAgent {}),
         Box::new(MaxAgent {}),
-        Box::new(MaxAgent {}),
+        Box::new(SmartAgent {}),
         // Box::new(DumbAgent {}),
         // Box::new(RandomAgent{ rng: thread_rng() })
     ];

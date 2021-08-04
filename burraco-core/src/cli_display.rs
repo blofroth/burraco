@@ -118,7 +118,7 @@ impl fmt::Display for PlayAction {
             AppendTop(run_idx, cards) => write!(f, "Append top, to {} - {}", run_idx, cards),
             AppendBottom(run_idx, cards) => write!(f, "Append bottom, to {} - {}", run_idx, cards),
             ReplaceWildcard(run_idx, wilcard_idx, card) => write!(f, "Replace wildcard, for {}: with {} - position {}", run_idx, card, wilcard_idx),
-            MoveCard(run_idx, from, to) => write!(f, "Move wildcard, with {} - from {} to {}", run_idx, from, to),
+            MoveCard(run_idx, from, to) => write!(f, "Move card, with {} - from {} to {}", run_idx, from, to),
             Noop => write!(f, "Play nothing"),
         }
     }
@@ -133,6 +133,7 @@ pub fn print_play_actions(actions: &Vec<(PlayAction,i32)>, runs: &Vec<Run>) {
             PlayAction::AppendTop(run_idx, _) => extra.push_str(&format!(" - {}", runs[*run_idx].cards())),
             PlayAction::AppendBottom(run_idx, _) => extra.push_str(&format!(" - {}", runs[*run_idx].cards())),
             PlayAction::MoveCard(run_idx, _from, _to) => extra.push_str(&format!(" - {}", runs[*run_idx].cards())),
+            // TODO more?
             _ => {}
         };
         println!("  {}: {}{}", i, action, extra );

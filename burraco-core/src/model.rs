@@ -132,6 +132,21 @@ impl Card {
         };
         Ok(Card(suit, rank))
     }
+
+    /// for use with sorting to canonicalize card sequences
+    pub fn val_tpl(&self) -> (i16, i16) {
+        let suit_val = match self.0 {
+            Clubs => 1,
+            Diamonds => 2,
+            Hearts => 3,
+            Spades => 4,
+            Jokers => 0
+        };
+
+        let rank_val = self.1.index();
+
+        (suit_val, rank_val)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -166,23 +181,10 @@ impl Cards {
         let index = self.len() - num_cards;
         Cards(self.split_off(index))
     }
-    
+
     pub fn sort(&mut self) {
-        fn val_tpl(card: &Card) -> (i16, i16) {
-            let suit_val = match card.0 {
-                Clubs => 1,
-                Diamonds => 2,
-                Hearts => 3,
-                Spades => 4,
-                Jokers => 0
-            };
-
-            let rank_val = card.1.index();
-
-            (suit_val, rank_val)
-        }
         self.sort_by(|a, b| {
-            val_tpl(a).cmp(&val_tpl(b))
+            Card::val_tpl(a).cmp(&Card::val_tpl(b))
         })
     } 
 
@@ -413,7 +415,7 @@ impl Run {
             return Err("Need at least 3 cards to create a group run".into());
         }
         let mut cards = cards;
-        cards.sort(); // canonicalize format
+        cards.sort_by_key( |c| (c.1 == Two, c.val_tpl())); // canonicalize format
 
         let first_known_rank = cards.iter().filter(|c| c.1 != Joker && c.1 != Two)
             .map(|c| c.1)
@@ -474,6 +476,7 @@ impl Run {
         new_cards.insert(0, old_card);
         let new_run = match self.run_type() {
             RunType::Sequence => Run::build_sequence_run(new_cards)?,
+            // we sort these, so we should still be able to get 150
             RunType::Group => return Err("No point in replacing wildcard in group, use append".into()),
         };
         Ok(new_run)
@@ -481,7 +484,7 @@ impl Run {
 
     pub fn move_card(&self, from: usize, to: usize) -> Result<Run,String> {
         let mut new_cards = self.cards().clone();
-        if from >= new_cards.len() || to >= new_cards.len() {
+        if from >= new_cards.len() || to >= new_cards.len() || from == to || to == from + 1 {
             return Err("Cannot move from/to invalid position".into());
         }
 
@@ -489,12 +492,17 @@ impl Run {
         // assume we don't need to verify card types here
         // should only be wildcards and ace that are allowed to move
 
+        dbg!(&from);
+        dbg!(&to);
         new_cards.insert(to, wildcard);
-        new_cards.remove(from);
+        dbg!(&new_cards);
+        let remove_idx= if to < from { from + 1} else { from };
+        new_cards.remove(remove_idx);
+        dbg!(&new_cards);
 
         let new_run = match self.run_type() {
             RunType::Sequence => Run::build_sequence_run(new_cards)?,
-            RunType::Group => Run::build_sequence_run(new_cards)?
+            RunType::Group => return Err("No point in moving card in group".into())
         };
         Ok(new_run)
     }
@@ -544,7 +552,7 @@ impl BurracoState {
         let pot2 = deck.drain_back(11);
     
         let mut teams = Vec::new();
-        for i in 0..num_teams {
+        for _i in 0..num_teams {
             let mut team_players = Vec::new();
             for j in 0..num_team_players {
                 team_players.push(Player {
@@ -669,6 +677,19 @@ mod tests {
     #[test]
     fn test_bad_final_wildcard() -> Result<(),String> {
         assert!(dbg!(Run::build_sequence_run(Cards::of("♥K,♥A,JK")?)).is_err());
+        Ok( () ) 
+    }
+
+    #[test]
+    fn test_bad_mid_wildcard() -> Result<(),String> {
+        assert!(dbg!(Run::build_sequence_run(Cards::of("♥3,JK,♥4")?)).is_err());
+        Ok( () ) 
+    }
+
+    #[test]
+    fn test_move_seq_wildcard() -> Result<(),String> {
+        let orig_run = Run::build_sequence_run(Cards::of("JK,♥3,♥4")?)?;
+        assert!(dbg!(orig_run.move_card(0, 1)).is_err());
         Ok( () ) 
     }
 

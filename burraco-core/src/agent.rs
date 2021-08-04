@@ -37,6 +37,7 @@ impl BurracoAgent for DumbAgent {
     fn display(&self) -> String {
         "Dumb agent".into()
     }  
+
 }
 
 pub struct SmartAgent {}
@@ -48,7 +49,7 @@ impl SmartAgent {
             PlayAction::StartRun(run) if run.run_type() == RunType::Sequence && run.cards().iter().all(|c| c.1 != Rank::Joker && c.1 != Rank::Two) => 10,
             PlayAction::StartRun(run) if run.run_type() == RunType::Sequence => 10,
             PlayAction::StartRun(run) if run.run_type() == RunType::Group => 15,
-            PlayAction::StartRun(run) => 16, // not needed?
+            PlayAction::StartRun(_run) => 16, // not needed?
             PlayAction::AppendTop(_, _) => 20,
             PlayAction::AppendBottom(_, _) => 20,
             PlayAction::Noop => 30,
@@ -82,6 +83,7 @@ impl BurracoAgent for SmartAgent {
     fn display(&self) -> String {
         "Smart agent".into()
     }  
+
 }
 
 pub struct MaxAgent {}
@@ -110,11 +112,11 @@ impl BurracoAgent for MaxAgent {
     fn display(&self) -> String {
         "Max action score agent".into()
     }
-    
 }
 
 use rand::Rng;
 use rand::prelude::SliceRandom;
+
 pub struct RandomAgent<R: Rng + ?Sized> {
     pub rng: R
 }
@@ -152,40 +154,56 @@ pub struct ManualCliAgent {}
 use std::io;
 use std::io::Write;
 
-impl ManualCliAgent {
-    fn display_concise_state(state: &BurracoState) {
-        let (team, player) = state.player_team_idxs[state.player_turn];
+pub struct ConciseStateView {
+    state: BurracoState
+}
+
+use std::fmt;
+
+impl fmt::Display for ConciseStateView {
+    fn fmt(&self, w: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let (team, player) = self.state.player_team_idxs[self.state.player_turn];
         
         
-        for (_, other_team) in state.teams.iter().enumerate().filter(|(i, _)| *i != team ) {
-            println!("Other team:");
-            print!(" h: ");
+        for (_, other_team) in self.state.teams.iter().enumerate().filter(|(i, _)| *i != team ) {
+            writeln!(w, "Other team:")?;
+            write!(w, " h: ")?;
             for other_player in &other_team.players {
-                print!("[{}] ", other_player.hand.len());
+                write!(w, "[{}] ", other_player.hand.len())?;
             }
-            println!("");
+            writeln!(w, "")?;
             for run in &other_team.played_runs {
-                println!(" r: {}", run);
+                writeln!(w, " r: {}", run)?;
             }
         }
 
-        for (_, curr_team) in state.teams.iter().enumerate().filter(|(i, _)| *i == team ) {
-            println!("Current team:");
-            print!(" h: ");
+        for (_, curr_team) in self.state.teams.iter().enumerate().filter(|(i, _)| *i == team ) {
+            writeln!(w, "Current team:")?;
+            write!(w, " h: ")?;
             for team_player in &curr_team.players {
                 print!("[{}] ", team_player.hand.len());
             }
-            println!("");
+            writeln!(w, "")?;
             for (i,run) in curr_team.played_runs.iter().enumerate() {
-                println!(" r[{}]: {}", i, run);
+                writeln!(w, " r[{}]: {}", i, run)?;
             }
         }
 
-        println!("Piles: <0>{} <1>[{}] (pots: [{}] [{}])", state.open_pile, state.draw_pile.len(), state.pot1.len(), state.pot1.len());
-        let hand = &state.teams[team].players[player].hand;
-        println!("Hand: {}", hand);
-        println!("       {}", hand.iter().enumerate().map(|(i,_c)| format!("{{{:width$}}}", i, width = 2)).collect::<String>() );
-        // println!("Hello {:width$}!", "x", width = 5);
+        writeln!(w, "Piles: <0>{} <1>[{}] (pots: [{}] [{}])", self.state.open_pile, self.state.draw_pile.len(), self.state.pot1.len(), self.state.pot1.len())?;
+        let hand = &self.state.teams[team].players[player].hand;
+        writeln!(w, "Hand: {}", hand)?;
+        writeln!(w, "       {}", hand.iter().enumerate().map(|(i,_c)| format!("{{{:width$}}}", i, width = 2)).collect::<String>() )
+    }
+}
+
+
+impl ManualCliAgent {
+    fn display_concise_state(state: &BurracoState) {
+        println!("{}", ManualCliAgent::concise_state(state));
+    }
+    
+    pub fn concise_state(state: &BurracoState) -> ConciseStateView {
+        ConciseStateView { state: state.clone() }
     }
 }
 
@@ -290,7 +308,6 @@ impl BurracoAgent for ManualCliAgent {
 
     fn display(&self) -> String {
         "Manual commandline agent".into()
-    }
-    
+    }  
 }
 
