@@ -87,8 +87,7 @@ impl BurracoGame {
 
     fn cards_in_hand(cards: &Cards, player: &Player) -> bool {
         use std::collections::HashSet;
-        use std::iter::FromIterator;
-        let uniq: HashSet<Card> = HashSet::from_iter(cards.iter().cloned());
+        let uniq: HashSet<Card> = cards.iter().cloned().collect::<HashSet<_>>();
 
         uniq.iter().all(|c1| {
             let run_count = cards.iter().filter(|c2| c1 == *c2).count();

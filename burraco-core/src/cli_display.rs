@@ -69,42 +69,42 @@ impl fmt::Display for Run {
 
 impl fmt::Display for BurracoState {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Burraco table: \n")?;
+        writeln!(f, "Burraco table:")?;
         for t in 0..self.num_teams {
-            write!(f, "  Team {}\n", t)?;
+            writeln!(f, "  Team {}", t)?;
             for p in 0..self.num_team_players {
-                write!(
+                writeln!(
                     f,
-                    "    Player {}-{}: {} cards \n",
+                    "    Player {}-{}: {} cards",
                     t,
                     p,
                     self.teams[t].players[p].hand.len()
                 )?;
             }
-            write!(f, "    Runs played\n")?;
+            writeln!(f, "    Runs played")?;
             for run in &self.teams[t].played_runs {
-                write!(f, "    - {}\n", run)?;
+                writeln!(f, "    - {}", run)?;
             }
         }
-        write!(f, "  Draw pile: {} cards \n", self.draw_pile.len())?;
-        write!(f, "  Open pile: {} \n", self.open_pile)?;
-        write!(f, "\n")?;
-        write!(f, "  Pot 1: {} cards \n", self.pot1.len())?;
-        write!(f, "  Pot 2: {} cards \n", self.pot2.len())?;
-        write!(f, "Cards tot: {} \n", self.cards_total())?;
+        writeln!(f, "  Draw pile: {} cards", self.draw_pile.len())?;
+        writeln!(f, "  Open pile: {}", self.open_pile)?;
+        writeln!(f)?;
+        writeln!(f, "  Pot 1: {} cards", self.pot1.len())?;
+        writeln!(f, "  Pot 2: {} cards", self.pot2.len())?;
+        writeln!(f, "Cards tot: {}", self.cards_total())?;
         let (team, player) = self.player_team_idxs[self.player_turn];
-        write!(f, "Current round: {} \n", self.round)?;
-        write!(f, "Current turn: team {} player {} \n", team, player)
+        writeln!(f, "Current round: {}", self.round)?;
+        writeln!(f, "Current turn: team {} player {}", team, player)
     }
 }
 
 impl fmt::Display for BurracoGame {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.state())?;
-        write!(f, "Scoreboard: {:?} \n", &self.scoreboard())?;
-        write!(f, "Current phase: {:?} \n", &self.phase())?;
-        write!(f, "Current hand: {} \n", self.current_player().hand)?;
-        write!(f, "---")
+        writeln!(f, "Scoreboard: {:?}", &self.scoreboard())?;
+        writeln!(f, "Current phase: {:?}", &self.phase())?;
+        writeln!(f, "Current hand: {}", self.current_player().hand)?;
+        writeln!(f, "---")
     }
 }
 

@@ -220,7 +220,7 @@ impl fmt::Display for ConciseStateView {
             for other_player in &other_team.players {
                 write!(w, "[{}] ", other_player.hand.len())?;
             }
-            writeln!(w, "")?;
+            writeln!(w)?;
             for run in &other_team.played_runs {
                 writeln!(w, " r: {}", run)?;
             }
@@ -238,7 +238,7 @@ impl fmt::Display for ConciseStateView {
             for team_player in &curr_team.players {
                 print!("[{}] ", team_player.hand.len());
             }
-            writeln!(w, "")?;
+            writeln!(w)?;
             for (i, run) in curr_team.played_runs.iter().enumerate() {
                 writeln!(w, " r[{}]: {}", i, run)?;
             }
