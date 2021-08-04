@@ -21,7 +21,7 @@ args = ["--port", "${PORT}"]
 
 [tasks.verify]
 description = "Format, lint with Clippy and run tests"
-dependencies = ["fmt", "clippy", "test_h_firefox"]
+dependencies = ["fmt_check", "clippy", "test_h_firefox"]
 
 # ---- BUILD ----
 
@@ -50,6 +50,11 @@ description = "Format with rustfmt"
 install_crate = { rustup_component_name = "rustfmt", binary = "rustfmt", test_arg = "-V" }
 command = "cargo"
 args = ["fmt"]
+
+[tasks.fmt_check]
+extend = "fmt"
+description = "Check format with nightly rustfmt"
+args = ["fmt", "--all", "--", "--check"]
 
 
 # ---- TEST ----
