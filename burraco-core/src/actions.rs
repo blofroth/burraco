@@ -203,7 +203,10 @@ impl BurracoGame {
         if self.current_player().hand.is_empty() {
             // TODO prevent action where game ends without team burraco
             if !self.current_team().has_reached_pot {
-                if let Some(non_empty_pot) = [&mut self.state.pot1, &mut self.state.pot2].iter_mut().find(|p| !p.is_empty()) {
+                if let Some(non_empty_pot) = [&mut self.state.pot1, &mut self.state.pot2]
+                    .iter_mut()
+                    .find(|p| !p.is_empty())
+                {
                     // "discard and get pot", can only play next turn
                     self.state.teams[team].players[player]
                         .hand
@@ -503,8 +506,8 @@ pub struct DiscardAction(pub Card);
 
 #[cfg(test)]
 mod tests {
-    use crate::agent::BurracoAgent;
     use super::*;
+    use crate::agent::BurracoAgent;
 
     // ♣ ♦ ♥ ♠
 

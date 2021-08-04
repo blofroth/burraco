@@ -4,12 +4,15 @@ use burraco::model::BurracoState;
 
 use burraco::actions::BurracoGame;
 use burraco::agent::BurracoAgent;
-use burraco::cli_display::print_play_actions;
 use burraco::agent::*;
+use burraco::cli_display::print_play_actions;
 
 fn main() -> Result<(), String> {
     use burraco::actions::GamePhase::*;
     use burraco::actions::PlayAction;
+
+    let version = option_env!("PROJECT_VERSION").unwrap_or(env!("CARGO_PKG_VERSION"));
+    println!("This binary was built from {}", version);
 
     let state = BurracoState::init_with(2, 2);
 

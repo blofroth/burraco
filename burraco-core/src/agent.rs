@@ -22,7 +22,6 @@ pub struct DumbAgent {}
 
 impl BurracoAgent for DumbAgent {
     fn select_draw_action(&mut self, state: &BurracoState) -> DrawAction {
-        
         if state.round % 2 == 0 {
             DrawAction::DrawPile
         } else {
@@ -76,7 +75,7 @@ impl SmartAgent {
 impl BurracoAgent for SmartAgent {
     fn select_draw_action(&mut self, state: &BurracoState) -> DrawAction {
         // TODO smarter draw?
-        
+
         if state.round % 2 == 0 {
             DrawAction::DrawPile
         } else {
@@ -109,7 +108,7 @@ pub struct MaxAgent {}
 impl BurracoAgent for MaxAgent {
     fn select_draw_action(&mut self, state: &BurracoState) -> DrawAction {
         // TODO: some max calculation here of gain?
-        
+
         if state.round % 2 == 0 {
             DrawAction::DrawPile
         } else {
@@ -140,10 +139,9 @@ impl BurracoAgent for MaxAgent {
 }
 
 use rand::prelude::SliceRandom;
-use rand::Rng;
 use rand::prelude::ThreadRng;
 use rand::thread_rng;
-
+use rand::Rng;
 
 pub struct RandomAgent<R: Rng + ?Sized> {
     pub rng: R,
@@ -151,13 +149,12 @@ pub struct RandomAgent<R: Rng + ?Sized> {
 
 impl<R: Rng + ?Sized> RandomAgent<R> {
     pub fn new_thread_rng() -> RandomAgent<ThreadRng> {
-        RandomAgent{ rng: thread_rng() }
+        RandomAgent { rng: thread_rng() }
     }
 }
 
 impl<R: Rng + ?Sized> BurracoAgent for RandomAgent<R> {
     fn select_draw_action(&mut self, _state: &BurracoState) -> DrawAction {
-        
         if self.rng.gen::<bool>() {
             DrawAction::DrawPile
         } else {
