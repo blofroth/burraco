@@ -320,7 +320,7 @@ fn update_game(
                     PlayAction::enumerate(
                         &model.game.current_team().played_runs,
                         &model.game.current_player().hand,
-                        7,
+                        model.curr_player_moves_allowed,
                     ),
                     model.game.state(),
                 );

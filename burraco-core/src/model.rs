@@ -90,6 +90,7 @@ impl Rank {
         match self {
             Ace => None,
             Joker => None,
+            Two => Some(Ace),
             any => Some(Rank::from_index(any.index() - 1)),
         }
     }
@@ -353,7 +354,7 @@ impl Run {
 
         // two Two:s of main suit could be allowed, cap to 1 in this count
         // NOTE: we assume two decks
-        if num_same_two.min(1) + num_other_two + num_joker > 1 {
+        if num_same_two.min(1) + num_other_two + num_joker > 2 {
             return Err("Too many wildcards in sequence run".into());
         }
 
@@ -362,6 +363,7 @@ impl Run {
         for i in 0..cards.len() {
             let prev_card = if i > 0 { Some(cards[i - 1]) } else { None };
             let card = cards[i];
+
             let next_card = if i < cards.len() - 1 {
                 Some(cards[i + 1])
             } else {
@@ -386,7 +388,9 @@ impl Run {
                     None
                 }
                 // Two used as wildcard, in any other suit
-                (Some(Card(_, prev_rank)), Card(_, Joker | Two), _) => Some((i, prev_rank.next())),
+                (Some(Card(_, prev_rank)), Card(_, Joker | Two), _) if prev_rank != Joker => {
+                    Some((i, prev_rank.next()))
+                }
                 (None, Card(_, Joker | Two), Some(Card(_, next_rank)))
                     if next_rank.prev().is_some() =>
                 {
@@ -422,6 +426,7 @@ impl Run {
 
                     let valid_rank_sequence = match (prev_rank, card.1, next_card) {
                         (Ace, curr, _) => curr == Two,
+                        (prev_rank, Ace, next) => next.is_none() && prev_rank == King,
                         _ => prev_rank.index() + 1 == card.1.index(),
                     };
 
@@ -710,6 +715,12 @@ mod tests {
     }
 
     #[test]
+    fn test_wildcard_two_and_joker() -> Result<(), String> {
+        assert!(dbg!(Run::build_sequence_run(Cards::of("♣2,♣3,♣4,JK")?)).is_ok());
+        Ok(())
+    }
+
+    #[test]
     fn test_bad_suit() -> Result<(), String> {
         assert!(dbg!(Run::build_sequence_run(Cards::of("♣3,♦4,♣5")?)).is_err());
         Ok(())
@@ -749,6 +760,12 @@ mod tests {
     fn test_move_seq_wildcard() -> Result<(), String> {
         let orig_run = Run::build_sequence_run(Cards::of("JK,♥3,♥4")?)?;
         assert!(dbg!(orig_run.move_card(0, 1)).is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn test_bad_ace_sequence() -> Result<(), String> {
+        assert!(dbg!(Run::build_sequence_run(Cards::of("♥K,♥A,♥2,♥3")?)).is_err());
         Ok(())
     }
 

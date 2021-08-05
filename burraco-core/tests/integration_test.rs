@@ -125,7 +125,7 @@ fn run_dumb_vs_smart() -> Result<(), String> {
     }
 
     // CHANGE DETECTOR test
-    assert_eq!(29, team_wins[0]); // dumb 29% vs smart
+    assert_eq!(31, team_wins[0]); // dumb % vs smart
     Ok(())
 }
 
@@ -156,7 +156,7 @@ fn run_smart_vs_max() -> Result<(), String> {
     }
 
     // CHANGE DETECTOR test
-    assert_eq!(60, team_wins[0]); // smart 60% vs max
+    assert_eq!(61, team_wins[0]); // smart % vs max
     Ok(())
 }
 
@@ -187,7 +187,7 @@ fn run_smartmax_vs_max() -> Result<(), String> {
     }
 
     // CHANGE DETECTOR test
-    assert_eq!(66, team_wins[0]); // smart max 66% vs max
+    assert_eq!(65, team_wins[0]); // smart max % vs max
     Ok(())
 }
 
@@ -218,7 +218,7 @@ fn run_smartmax_vs_smart() -> Result<(), String> {
     }
 
     // CHANGE DETECTOR test
-    assert_eq!(50, team_wins[0]); // smart max 50% vs smart
+    assert_eq!(52, team_wins[0]); // smart max % vs smart
     Ok(())
 }
 
@@ -249,6 +249,6 @@ fn run_random_vs_max() -> Result<(), String> {
     }
 
     // CHANGE DETECTOR test
-    assert_eq!(34, team_wins[0]); // smart 34% vs max
+    assert_eq!(41, team_wins[0]); // smart % vs max
     Ok(())
 }
