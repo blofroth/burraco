@@ -147,15 +147,6 @@ pub enum RootMsg {
     Init(InitMsg),
 }
 
-#[derive(Copy, Clone, Debug)]
-pub enum AgentType {
-    Dumb,
-    Smart,
-    Random,
-    Max,
-    Manual,
-}
-
 #[derive(Clone, Debug)]
 pub struct InitOptions {
     pub num_teams: usize,
@@ -199,17 +190,6 @@ fn update(msg: RootMsg, model: &mut Model, orders: &mut impl Orders<RootMsg>) {
                 );
 
                 let game = BurracoGame::from(state);
-
-                fn create_agent(agent_type: AgentType) -> Box<dyn BurracoAgent> {
-                    let agent: Box<dyn BurracoAgent> = match agent_type {
-                        AgentType::Dumb => Box::new(DumbAgent {}),
-                        AgentType::Smart => Box::new(SmartAgent {}),
-                        AgentType::Max => Box::new(MaxAgent {}),
-                        AgentType::Random => Box::new(random_agent_thread_rng()),
-                        _ => unimplemented!(),
-                    };
-                    agent
-                }
 
                 let mut game_model = GameModel {
                     game,
@@ -344,6 +324,9 @@ fn update_game(
                     ),
                     model.game.state(),
                 );
+                if let PlayAction::MoveCard(_, _, _) = curr_move {
+                    model.curr_player_moves_allowed -= 1;
+                }
                 model.last_move =
                     format!("{} - Player {}", &curr_move, model.game.state().player_turn);
                 model.game.play(curr_move).expect("valid play action")

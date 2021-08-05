@@ -7,3 +7,7 @@ edition = "2018"
 
 [dependencies]
 rand = "0.8.0"
+
+[features]
+# Defines a feature named `webp` that does not enable any other features.
+enumerate_profiling = []

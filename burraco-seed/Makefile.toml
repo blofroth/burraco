@@ -49,7 +49,7 @@ args = ["clippy"]
 description = "Format with rustfmt"
 install_crate = { rustup_component_name = "rustfmt", binary = "rustfmt", test_arg = "-V" }
 command = "cargo"
-args = ["fmt"]
+args = ["fmt", "--all"]
 
 [tasks.fmt_check]
 extend = "fmt"

@@ -7,6 +7,33 @@ use crate::model::Cards;
 use crate::model::Rank;
 use crate::model::RunType;
 
+#[derive(Copy, Clone, Debug)]
+pub enum AgentType {
+    Dumb,
+    Smart,
+    Random,
+    SeededRandom(u64),
+    Max,
+    ManualCli,
+    /// Assume external code drives action selection on BurracoGame
+    Manual,
+}
+
+pub fn create_agent(agent_type: AgentType) -> Box<dyn BurracoAgent> {
+    let agent: Box<dyn BurracoAgent> = match agent_type {
+        AgentType::Dumb => Box::new(DumbAgent {}),
+        AgentType::Smart => Box::new(SmartAgent {}),
+        AgentType::Max => Box::new(MaxAgent {}),
+        AgentType::Random => Box::new(random_agent_thread_rng()),
+        AgentType::SeededRandom(seed) => Box::new(RandomAgent {
+            rng: StdRng::seed_from_u64(seed),
+        }),
+        AgentType::ManualCli => Box::new(ManualCliAgent {}),
+        _ => unimplemented!(),
+    };
+    agent
+}
+
 pub trait BurracoAgent {
     fn select_draw_action(&mut self, state: &BurracoState) -> DrawAction;
     fn select_play_action(
@@ -74,9 +101,19 @@ impl SmartAgent {
 
 impl BurracoAgent for SmartAgent {
     fn select_draw_action(&mut self, state: &BurracoState) -> DrawAction {
-        // TODO smarter draw?
+        let (team, team_player) = state.curr_team_player();
+        let mut hand = state.teams[team].players[team_player].hand.clone();
+        let actions_now = PlayAction::enumerate(&state.teams[team].played_runs, &hand, 0);
+        let open_gives_more_actions = state.open_pile.iter().any(|c| {
+            hand.push(*c);
+            let actions_after = PlayAction::enumerate(&state.teams[team].played_runs, &hand, 0);
+            hand.pop();
+            actions_after.len() > actions_now.len()
+        });
 
-        if state.round % 2 == 0 {
+        if open_gives_more_actions {
+            DrawAction::DrawOpen
+        } else if state.round % 2 == 0 {
             DrawAction::DrawPile
         } else {
             DrawAction::DrawOpen
@@ -93,8 +130,22 @@ impl BurracoAgent for SmartAgent {
         actions.into_iter().next().unwrap().0
     }
 
-    fn select_discard_action(&mut self, hand: &Cards, _state: &BurracoState) -> DiscardAction {
-        // TODO smarter discard?
+    fn select_discard_action(&mut self, hand: &Cards, state: &BurracoState) -> DiscardAction {
+        let (team, _team_player) = state.curr_team_player();
+        let other_team_runs = &state.teams[(team + 1) % state.num_teams].played_runs;
+
+        let other_team_actions_now = PlayAction::enumerate(other_team_runs, &Cards(vec![]), 0);
+
+        // discard first card that does not immediately give oppenent a benefit
+        for card in hand.iter() {
+            let other_team_actions_with_card =
+                PlayAction::enumerate(other_team_runs, &Cards(vec![*card]), 0);
+            if other_team_actions_with_card.len() == other_team_actions_now.len() {
+                return DiscardAction(*card);
+            }
+        }
+
+        // discard first hand by default
         DiscardAction(hand[0])
     }
 
@@ -139,9 +190,11 @@ impl BurracoAgent for MaxAgent {
 }
 
 use rand::prelude::SliceRandom;
+use rand::prelude::StdRng;
 use rand::prelude::ThreadRng;
 use rand::thread_rng;
 use rand::Rng;
+use rand::SeedableRng;
 
 pub struct RandomAgent<R: Rng + ?Sized> {
     pub rng: R,

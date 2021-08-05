@@ -49,7 +49,6 @@ fn main() -> Result<(), String> {
             );
         }
         let agent = &mut agents[game.state().player_turn];
-        // poor mans randomization :)
         let draw_action = agent.select_draw_action(game.state());
 
         println!("Agent: {}", agent.display());
@@ -93,7 +92,6 @@ fn main() -> Result<(), String> {
             if let Finished(_) = game.phase() {
                 let player_turn = game.state().player_turn;
                 let (team, player) = game.state().player_team_idxs[player_turn];
-                // TODO: potsetto
                 println!(
                     "PLAYER WITH EMPTY HAND: team {}, player {} (P{})",
                     team, player, player_turn

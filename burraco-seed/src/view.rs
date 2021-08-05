@@ -5,6 +5,7 @@
 
 use crate::RootMsg;
 use burraco::actions::GamePhase;
+use burraco::agent::AgentType;
 use burraco::model::BurracoState;
 use burraco::model::Card;
 use burraco::model::Cards;

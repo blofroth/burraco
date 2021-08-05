@@ -322,6 +322,12 @@ impl BurracoGame {
     }
 }
 
+pub enum Action {
+    Draw(DrawAction),
+    Play(PlayAction),
+    Discard(DiscardAction),
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DrawAction {
     DrawOpen,
@@ -376,13 +382,14 @@ impl PlayAction {
                     if j == k || i == k {
                         continue;
                     };
-                    #[cfg(debug_assertions)]
+
+                    #[cfg(feature = "enumerate_profiling")]
                     eprintln!("p-start");
 
                     let card3 = player_hand[k];
                     let maybe_run = Run::build_sequence_run(Cards(vec![card1, card2, card3]));
                     if let Ok(run) = maybe_run {
-                        #[cfg(debug_assertions)]
+                        #[cfg(feature = "enumerate_profiling")]
                         eprintln!("p-start-ok");
                         let run_score = run.score();
                         actions.push((PlayAction::StartRun(run), run_score));
@@ -397,14 +404,14 @@ impl PlayAction {
             for j in (i + 1)..player_hand.len() {
                 let card2 = player_hand[j];
                 for k in (j + 1)..player_hand.len() {
-                    #[cfg(debug_assertions)]
+                    #[cfg(feature = "enumerate_profiling")]
                     eprintln!("p-start-g");
 
                     let card3 = player_hand[k];
 
                     let maybe_run = Run::build_group_run(Cards(vec![card1, card2, card3]));
                     if let Ok(run) = maybe_run {
-                        #[cfg(debug_assertions)]
+                        #[cfg(feature = "enumerate_profiling")]
                         eprintln!("p-start-g-ok");
                         let run_score = run.score();
                         actions.push((PlayAction::StartRun(run), run_score));
@@ -419,10 +426,10 @@ impl PlayAction {
         for i in 0..player_hand.len() {
             let card = Cards(vec![player_hand[i]]);
             for (j, run) in team_runs.iter().enumerate() {
-                #[cfg(debug_assertions)]
+                #[cfg(feature = "enumerate_profiling")]
                 eprintln!("p-append");
                 if let Ok(new_run) = run.append(&card, Append::Top) {
-                    #[cfg(debug_assertions)]
+                    #[cfg(feature = "enumerate_profiling")]
                     eprintln!("p-append-ok");
                     actions.push((
                         PlayAction::AppendTop(j, card.clone()),
@@ -430,7 +437,7 @@ impl PlayAction {
                     ));
                 }
                 if let Ok(new_run) = run.append(&card, Append::Bottom) {
-                    #[cfg(debug_assertions)]
+                    #[cfg(feature = "enumerate_profiling")]
                     eprintln!("p-append-ok");
                     actions.push((
                         PlayAction::AppendBottom(j, card.clone()),
@@ -452,10 +459,10 @@ impl PlayAction {
                     if rank_replace != Joker && rank_replace != Two {
                         continue;
                     }
-                    #[cfg(debug_assertions)]
+                    #[cfg(feature = "enumerate_profiling")]
                     eprintln!("p-replace");
                     if let Ok(new_run) = run.replace_wildcard(k, &card) {
-                        #[cfg(debug_assertions)]
+                        #[cfg(feature = "enumerate_profiling")]
                         eprintln!("p-replace-ok");
                         actions.push((
                             PlayAction::ReplaceWildcard(i, k, card),
@@ -478,14 +485,15 @@ impl PlayAction {
                         continue;
                     }
 
-                    for to in 0..run.cards().len() {
+                    for to in 0..run.cards().len() + 1 {
+                        // can insert also after
                         if from == to {
                             continue;
                         }
-                        #[cfg(debug_assertions)]
+                        #[cfg(feature = "enumerate_profiling")]
                         eprintln!("p-move");
                         if let Ok(new_run) = run.move_card(from, to) {
-                            #[cfg(debug_assertions)]
+                            #[cfg(feature = "enumerate_profiling")]
                             eprintln!("p-move-ok");
                             actions.push((
                                 PlayAction::MoveCard(i, from, to),
@@ -572,8 +580,9 @@ mod tests {
         use std::collections::HashSet;
         let set: HashSet<_> = actions.into_iter().map(|(a, _s)| a).collect();
 
-        assert_eq!(1, set.len());
+        assert_eq!(2, set.len());
         assert!(&set.contains(&PlayAction::Noop));
+        assert!(&set.contains(&PlayAction::MoveCard(0, 0, 3)));
 
         Ok(())
     }
@@ -624,6 +633,28 @@ mod tests {
         let (team, player) = game.state.player_team_idxs[game.state.player_turn];
         assert_eq!(0, team);
         assert_eq!(1, player);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_move_wildcard_to_last() -> Result<(), String> {
+        let run = Cards::of("JK, ♠3, ♠4")?;
+        let run = Run::build_sequence_run(run)?;
+
+        let hand = Cards::of("♥3")?;
+
+        let actions = PlayAction::enumerate(&[run], &hand, 1);
+        for (action, _d_score) in &actions {
+            println!("{}", action);
+        }
+
+        let actions: Vec<_> = actions.iter().map(|at| at.0.clone()).collect();
+
+        assert_eq!(
+            vec![PlayAction::Noop, PlayAction::MoveCard(0, 0, 3)],
+            actions
+        );
 
         Ok(())
     }

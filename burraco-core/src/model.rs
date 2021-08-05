@@ -523,7 +523,8 @@ impl Run {
 
     pub fn move_card(&self, from: usize, to: usize) -> Result<Run, String> {
         let mut new_cards = self.cards().clone();
-        if from >= new_cards.len() || to >= new_cards.len() || from == to || to == from + 1 {
+
+        if from >= new_cards.len() || to > new_cards.len() || from == to || to == from + 1 {
             return Err("Cannot move from/to invalid position".into());
         }
 
@@ -531,13 +532,9 @@ impl Run {
         // assume we don't need to verify card types here
         // should only be wildcards and ace that are allowed to move
 
-        dbg!(&from);
-        dbg!(&to);
         new_cards.insert(to, wildcard);
-        dbg!(&new_cards);
         let remove_idx = if to < from { from + 1 } else { from };
         new_cards.remove(remove_idx);
-        dbg!(&new_cards);
 
         let new_run = match self.run_type() {
             RunType::Sequence => Run::build_sequence_run(new_cards)?,
@@ -579,12 +576,34 @@ impl BurracoState {
     }
 
     pub fn init_with(num_teams: usize, num_team_players: usize) -> BurracoState {
+        BurracoState::init_seeded(num_teams, num_team_players, None)
+    }
+
+    pub fn init_seeded(
+        num_teams: usize,
+        num_team_players: usize,
+        maybe_seed: Option<u64>,
+    ) -> BurracoState {
         use rand::prelude::*;
+
+        let mut seeded_rng = maybe_seed.map(StdRng::seed_from_u64);
+
+        let num_players = num_teams * num_team_players;
+        let starting_player = if let Some(seeded_rng) = &mut seeded_rng {
+            seeded_rng.gen_range(0..num_players)
+        } else {
+            thread_rng().gen_range(0..num_players)
+        };
+
         // 2 decks
         let mut deck = Cards::build_deck(3);
         deck.append(&mut Cards::build_deck(3));
 
-        deck.shuffle(&mut thread_rng());
+        if let Some(seeded_rng) = &mut seeded_rng {
+            deck.shuffle(seeded_rng)
+        } else {
+            deck.shuffle(&mut thread_rng())
+        };
 
         let pot1 = deck.drain_back(11);
         let pot2 = deck.drain_back(11);
@@ -612,8 +631,6 @@ impl BurracoState {
                 player_team_idxs.push((t, p))
             }
         }
-
-        let starting_player = thread_rng().gen_range(0..player_team_idxs.len());
 
         let open_pile = deck.drain_back(1);
         let draw_pile = deck;
