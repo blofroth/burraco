@@ -263,6 +263,15 @@ fn update_game(
     model: &mut GameModel,
     _: &mut impl Orders<RootMsg>,
 ) -> Result<(), String> {
+    if let GamePhase::Finished(winner) = model.game.phase() {
+        model.last_move = format!(
+            "Winner is team {}. Scores: {:?}",
+            winner,
+            &model.game.scoreboard()
+        );
+        return Ok(());
+    }
+
     if model.is_manual_turn() {
         match (model.game.phase(), msg) {
             (GamePhase::Draw, Msg::Draw(idx)) => {
@@ -339,13 +348,7 @@ fn update_game(
                 model.game.discard(curr_move).expect("valid discard");
                 model.curr_player_moves_allowed = 0;
             }
-            GamePhase::Finished(winning_team) => {
-                model.last_move = format!(
-                    "Winner is team {}. Scores: {:?}",
-                    winning_team,
-                    &model.game.scoreboard()
-                )
-            }
+            _ => return Err("Bad phase".into()),
         }
     }
     model.update_choices();
